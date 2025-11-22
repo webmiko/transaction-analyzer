@@ -10,8 +10,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-import pandas as pd
-import requests
+import pandas as pd  # type: ignore[import-untyped]
+import requests  # type: ignore[import-untyped]
 
 from src.logger_config import setup_logger
 

@@ -18,6 +18,8 @@ flake8 = "^6.0.0"
 isort = "^5.12.0"
 mypy = "^1.0.0"
 pytest-cov = "^7.0.0"
+pandas-stubs = ">=2.2.0,<2.3.0"
+types-requests = "^2.32.4.20250913"
 
 [build-system]
 requires = ["poetry-core"]
@@ -50,6 +52,13 @@ no_implicit_optional = true
 exclude = '''
 ^venv/
 '''
+# Настройки для pandas и requests stubs
+[[tool.mypy.overrides]]
+module = [
+    "pandas.*",
+    "requests.*",
+]
+ignore_missing_imports = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
