@@ -61,6 +61,14 @@ module = [
 ]
 ignore_missing_imports = false
 
+# Настройки для pytest (библиотека тестирования не требует типов)
+[[tool.mypy.overrides]]
+module = [
+    "pytest",
+    "pytest.*",
+]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

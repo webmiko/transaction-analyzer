@@ -24,7 +24,7 @@ from src.logger_config import _get_log_level, setup_logger
         ("unknown", 20),  # Неизвестный уровень -> INFO по умолчанию
     ],
 )
-def test_get_log_level(level_name, expected_level):
+def test_get_log_level(level_name: str, expected_level: int) -> None:
     """Тест преобразования уровня логирования с параметризацией."""
     result = _get_log_level(level_name)
     assert result == expected_level
@@ -38,7 +38,9 @@ class TestSetupLogger:
     @patch("src.logger_config.logging.StreamHandler")
     @patch("src.logger_config.logging.Formatter")
     @patch("src.logger_config.logging.getLogger")
-    def test_setup_logger_success(self, mock_get_logger, mock_formatter, mock_stream, mock_file):
+    def test_setup_logger_success(
+        self, mock_get_logger: MagicMock, mock_formatter: MagicMock, mock_stream: MagicMock, mock_file: MagicMock
+    ) -> None:
         """Тест успешной настройки логгера."""
         mock_logger = MagicMock()
         mock_logger.handlers = []  # Нет обработчиков
@@ -53,7 +55,7 @@ class TestSetupLogger:
         assert mock_logger.addHandler.call_count == 2  # Файл + консоль
 
     @patch("src.logger_config.logging.getLogger")
-    def test_setup_logger_existing_handlers(self, mock_get_logger):
+    def test_setup_logger_existing_handlers(self, mock_get_logger: MagicMock) -> None:
         """Тест обработки случая, когда у логгера уже есть обработчики."""
         mock_logger = MagicMock()
         mock_logger.handlers = [MagicMock()]  # Уже есть обработчик
@@ -69,7 +71,9 @@ class TestSetupLogger:
     @patch("src.logger_config.logging.StreamHandler")
     @patch("src.logger_config.logging.Formatter")
     @patch("src.logger_config.logging.getLogger")
-    def test_setup_logger_file_error(self, mock_get_logger, mock_formatter, mock_stream, mock_file):
+    def test_setup_logger_file_error(
+        self, mock_get_logger: MagicMock, mock_formatter: MagicMock, mock_stream: MagicMock, mock_file: MagicMock
+    ) -> None:
         """Тест обработки ошибки при создании файла логов."""
         mock_logger = MagicMock()
         mock_logger.handlers = []
@@ -90,7 +94,9 @@ class TestSetupLogger:
     @patch("src.logger_config.logging.StreamHandler")
     @patch("src.logger_config.logging.Formatter")
     @patch("src.logger_config.logging.getLogger")
-    def test_setup_logger_permission_error(self, mock_get_logger, mock_formatter, mock_stream, mock_file):
+    def test_setup_logger_permission_error(
+        self, mock_get_logger: MagicMock, mock_formatter: MagicMock, mock_stream: MagicMock, mock_file: MagicMock
+    ) -> None:
         """Тест обработки ошибки доступа при создании файла логов."""
         mock_logger = MagicMock()
         mock_logger.handlers = []
