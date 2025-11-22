@@ -6,14 +6,19 @@
 
 import json
 import os
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import pandas as pd  # type: ignore[import-untyped]
 import requests  # type: ignore[import-untyped]
+from dotenv import load_dotenv
 
 from src.logger_config import setup_logger
+
+# Загрузка переменных окружения из .env файла
+load_dotenv()
 
 # Настройка логгера
 logger = setup_logger(__name__)
@@ -362,20 +367,28 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
     api_key = os.getenv("API_KEY")
     api_url = os.getenv("API_URL", "https://api.exchangerate-api.com/v4")
 
-    if not api_key:
-        error_msg = "API ключ не найден в переменных окружения"
-        logger.error(error_msg)
-        return []
-
     if not currencies:
         logger.warning("Список валют пуст")
         return []
 
     try:
         # Формирование URL для запроса
-        symbols = ",".join(currencies)
-        url = f"{api_url}/latest"
-        params = {"access_key": api_key, "symbols": symbols}
+        # Для exchangerate-api.com можно использовать без ключа (бесплатный tier)
+        if "exchangerate-api.com" in api_url:
+            # Бесплатный API exchangerate-api.com - используем базовую валюту RUB
+            base_currency = "RUB"
+            url = f"{api_url}/latest/{base_currency}"
+            params = {}  # Не требует ключа для базового использования
+            logger.debug("Использование бесплатного API exchangerate-api.com")
+        else:
+            # Другие API требуют ключ
+            if not api_key or api_key == "your_api_key_here":
+                error_msg = "API ключ не найден или не установлен"
+                logger.error(error_msg)
+                return []
+            symbols = ",".join(currencies)
+            url = f"{api_url}/latest"
+            params = {"access_key": api_key, "symbols": symbols}
 
         logger.debug(f"Запрос к API: {url}")
 
@@ -389,14 +402,21 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
 
         # Обработка ответа API
         rates = []
+        # Поддержка разных форматов ответа API
         if "rates" in data:
+            # Формат exchangerate-api.com и подобных
             for currency in currencies:
                 if currency in data["rates"]:
                     rates.append({"currency": currency, "rate": data["rates"][currency]})
                 else:
                     logger.warning(f"Курс для валюты {currency} не найден в ответе API")
+        elif "conversion_rates" in data:
+            # Альтернативный формат
+            for currency in currencies:
+                if currency in data["conversion_rates"]:
+                    rates.append({"currency": currency, "rate": data["conversion_rates"][currency]})
         else:
-            logger.warning("В ответе API отсутствует поле 'rates'")
+            logger.warning(f"Неожиданный формат ответа API. Доступные ключи: {list(data.keys())}")
             return []
 
         logger.info(f"Получено курсов валют: {len(rates)}")
@@ -418,7 +438,7 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
 
 def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
     """
-    Получает текущие цены акций через API.
+    Получает текущие цены акций через Alpha Vantage API.
 
     API ключ загружается из переменной окружения API_KEY.
 
@@ -440,10 +460,11 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
 
     # Загрузка API ключа из переменных окружения
     api_key = os.getenv("API_KEY")
-    api_url = os.getenv("API_URL", "https://api.example.com")
+    # Alpha Vantage API URL
+    api_url = "https://www.alphavantage.co/query"
 
-    if not api_key:
-        error_msg = "API ключ не найден в переменных окружения"
+    if not api_key or api_key == "your_api_key_here":
+        error_msg = "API ключ не найден или не установлен"
         logger.error(error_msg)
         return []
 
@@ -451,52 +472,67 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
         logger.warning("Список акций пуст")
         return []
 
-    try:
-        # Формирование URL для запроса
-        symbols = ",".join(stocks)
-        url = f"{api_url}/stocks"
-        params = {"apikey": api_key, "symbols": symbols}
+    prices = []
 
-        logger.debug(f"Запрос к API: {url}")
+    # Alpha Vantage требует отдельный запрос для каждой акции
+    # (или можно использовать BATCH_QUOTES, но GLOBAL_QUOTE проще)
+    for stock in stocks:
+        try:
+            # Формирование параметров для Alpha Vantage
+            params = {
+                "function": "GLOBAL_QUOTE",
+                "symbol": stock,
+                "apikey": api_key,
+            }
 
-        # Выполнение запроса
-        response = requests.get(url, params=params, timeout=10)
+            logger.debug(f"Запрос к Alpha Vantage API для {stock}")
 
-        # Проверка статуса ответа
-        response.raise_for_status()
+            # Выполнение запроса
+            response = requests.get(api_url, params=params, timeout=10)
 
-        data = response.json()
+            # Проверка статуса ответа
+            response.raise_for_status()
 
-        # Обработка ответа API (структура зависит от конкретного API)
-        prices = []
-        if isinstance(data, list):
-            # Если API возвращает список
-            for item in data:
-                if "symbol" in item and "price" in item:
-                    prices.append({"stock": item["symbol"], "price": item["price"]})
-        elif isinstance(data, dict):
-            # Если API возвращает словарь
-            for stock in stocks:
-                if stock in data:
-                    prices.append({"stock": stock, "price": data[stock]})
+            data = response.json()
+
+            # Обработка ответа Alpha Vantage
+            # Формат: {"Global Quote": {"01. symbol": "AAPL", "05. price": "150.12", ...}}
+            if "Global Quote" in data and data["Global Quote"]:
+                quote = data["Global Quote"]
+                # Alpha Vantage возвращает цену в поле "05. price"
+                price_str = quote.get("05. price", "")
+                if price_str:
+                    try:
+                        price = float(price_str)
+                        prices.append({"stock": stock, "price": price})
+                        logger.debug(f"Получена цена для {stock}: {price}")
+                    except ValueError:
+                        logger.warning(f"Некорректный формат цены для {stock}: {price_str}")
                 else:
-                    logger.warning(f"Цена для акции {stock} не найдена в ответе API")
-        else:
-            logger.warning("Неожиданный формат ответа от API акций")
-            return []
+                    logger.warning(f"Цена не найдена в ответе API для {stock}")
+            elif "Error Message" in data:
+                error_msg = data.get("Error Message", "Неизвестная ошибка API")
+                logger.warning(f"Ошибка API для {stock}: {error_msg}")
+            elif "Note" in data:
+                # Alpha Vantage может вернуть сообщение о лимите запросов
+                # Не логируем это сообщение, так как оно содержит API ключ
+                # Это просто информационное сообщение о лимите запросов
+                pass
+            else:
+                logger.warning(f"Неожиданный формат ответа API для {stock}")
 
-        logger.info(f"Получено цен акций: {len(prices)}")
-        return prices
+            # Небольшая задержка между запросами (Alpha Vantage имеет лимит 5 запросов/минуту для бесплатного плана)
+            time.sleep(0.2)  # 200ms задержка между запросами
 
-    except requests.exceptions.RequestException as e:
-        error_msg = "Ошибка при запросе к API акций"
-        logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
-        return []
-    except json.JSONDecodeError as e:
-        error_msg = "Ошибка парсинга JSON ответа от API"
-        logger.error(f"{error_msg}: {e}")
-        return []
-    except Exception as e:
-        error_msg = "Неожиданная ошибка при получении цен акций"
-        logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
-        return []
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Ошибка при запросе к API для акции {stock}"
+            logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
+        except json.JSONDecodeError as e:
+            error_msg = f"Ошибка парсинга JSON ответа от API для {stock}"
+            logger.error(f"{error_msg}: {e}")
+        except Exception as e:
+            error_msg = f"Неожиданная ошибка при получении цены для {stock}"
+            logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
+
+    logger.info(f"Получено цен акций: {len(prices)} из {len(stocks)}")
+    return prices
