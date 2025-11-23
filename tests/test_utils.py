@@ -6,6 +6,7 @@
 
 import json
 from datetime import datetime
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, mock_open, patch
 
 import pandas as pd
@@ -28,7 +29,7 @@ from src.utils import (
 
 # Фикстуры для тестовых данных
 @pytest.fixture
-def sample_transactions_df():
+def sample_transactions_df() -> pd.DataFrame:
     """Фикстура с тестовыми данными транзакций."""
     data = {
         "Дата операции": ["15.03.2024 10:30:00", "16.03.2024 14:20:00"],
@@ -51,7 +52,7 @@ def sample_transactions_df():
 
 
 @pytest.fixture
-def sample_user_settings():
+def sample_user_settings() -> Dict[str, List[str]]:
     """Фикстура с тестовыми настройками пользователя."""
     return {
         "user_currencies": ["USD", "EUR"],
@@ -65,7 +66,9 @@ class TestLoadTransactionsFromExcel:
 
     @patch("src.utils.pd.read_excel")
     @patch("src.utils.os.path.exists")
-    def test_load_transactions_from_excel_success(self, mock_exists, mock_read_excel, sample_transactions_df):
+    def test_load_transactions_from_excel_success(
+        self, mock_exists: Any, mock_read_excel: Any, sample_transactions_df: pd.DataFrame
+    ) -> None:
         """Тест успешной загрузки транзакций из Excel."""
         mock_exists.return_value = True
         mock_read_excel.return_value = sample_transactions_df
@@ -77,7 +80,7 @@ class TestLoadTransactionsFromExcel:
         mock_read_excel.assert_called_once_with("data/test.xlsx", engine="openpyxl")
 
     @patch("src.utils.os.path.exists")
-    def test_load_transactions_from_excel_file_not_found(self, mock_exists):
+    def test_load_transactions_from_excel_file_not_found(self, mock_exists: Any) -> None:
         """Тест обработки ошибки при отсутствии файла."""
         mock_exists.return_value = False
 
@@ -86,7 +89,7 @@ class TestLoadTransactionsFromExcel:
 
     @patch("src.utils.pd.read_excel")
     @patch("src.utils.os.path.exists")
-    def test_load_transactions_from_excel_missing_columns(self, mock_exists, mock_read_excel):
+    def test_load_transactions_from_excel_missing_columns(self, mock_exists: Any, mock_read_excel: Any) -> None:
         """Тест обработки ошибки при отсутствии необходимых колонок."""
         mock_exists.return_value = True
         # DataFrame без необходимых колонок
@@ -97,7 +100,7 @@ class TestLoadTransactionsFromExcel:
 
     @patch("src.utils.pd.read_excel")
     @patch("src.utils.os.path.exists")
-    def test_load_transactions_from_excel_empty_file(self, mock_exists, mock_read_excel):
+    def test_load_transactions_from_excel_empty_file(self, mock_exists: Any, mock_read_excel: Any) -> None:
         """Тест обработки пустого файла."""
         mock_exists.return_value = True
         # DataFrame с правильными колонками, но пустой
@@ -129,7 +132,9 @@ class TestLoadTransactionsFromExcel:
 
     @patch("src.utils.pd.read_excel")
     @patch("src.utils.os.path.exists")
-    def test_load_transactions_from_excel_invalid_dates(self, mock_exists, mock_read_excel, sample_transactions_df):
+    def test_load_transactions_from_excel_invalid_dates(
+        self, mock_exists: Any, mock_read_excel: Any, sample_transactions_df: pd.DataFrame
+    ) -> None:
         """Тест обработки некорректных дат в данных."""
         mock_exists.return_value = True
         # DataFrame с некорректными датами
@@ -145,7 +150,7 @@ class TestLoadTransactionsFromExcel:
 
     @patch("src.utils.pd.read_excel")
     @patch("src.utils.os.path.exists")
-    def test_load_transactions_from_excel_general_exception(self, mock_exists, mock_read_excel):
+    def test_load_transactions_from_excel_general_exception(self, mock_exists: Any, mock_read_excel: Any) -> None:
         """Тест обработки общего исключения при загрузке."""
         mock_exists.return_value = True
         mock_read_excel.side_effect = Exception("Unexpected error")
@@ -166,7 +171,7 @@ class TestLoadTransactionsFromExcel:
         ("29.02.2024", datetime(2024, 2, 29, 0, 0, 0)),  # Високосный год
     ],
 )
-def test_parse_date_success(date_string, expected_date):
+def test_parse_date_success(date_string: str, expected_date: datetime) -> None:
     """Тест успешного парсинга даты с параметризацией."""
     result = parse_date(date_string)
     assert result == expected_date
@@ -182,7 +187,7 @@ def test_parse_date_success(date_string, expected_date):
         "invalid",  # Не дата
     ],
 )
-def test_parse_date_invalid_format(invalid_date_string):
+def test_parse_date_invalid_format(invalid_date_string: str) -> None:
     """Тест обработки некорректного формата даты с параметризацией."""
     with pytest.raises(ValueError, match="Некорректный формат даты"):
         parse_date(invalid_date_string)
@@ -198,7 +203,7 @@ def test_parse_date_invalid_format(invalid_date_string):
         (datetime(2024, 2, 29, 14, 30, 0), "29.02.2024"),  # Время игнорируется
     ],
 )
-def test_format_date(date, expected_string):
+def test_format_date(date: datetime, expected_string: str) -> None:
     """Тест форматирования даты с параметризацией."""
     result = format_date(date)
     assert result == expected_string
@@ -214,7 +219,7 @@ def test_format_date(date, expected_string):
         (datetime(2023, 2, 28, 12, 0, 0), datetime(2023, 2, 1, 0, 0, 0)),
     ],
 )
-def test_get_month_start(date, expected_start):
+def test_get_month_start(date: datetime, expected_start: datetime) -> None:
     """Тест получения начала месяца с параметризацией."""
     result = get_month_start(date)
     assert result == expected_start
@@ -246,7 +251,7 @@ def test_get_month_start(date, expected_start):
         ),
     ],
 )
-def test_get_month_range(date, expected_start, expected_end):
+def test_get_month_range(date: datetime, expected_start: datetime, expected_end: datetime) -> None:
     """Тест получения диапазона месяца с параметризацией."""
     start, end = get_month_range(date)
     assert start == expected_start
@@ -263,7 +268,7 @@ def test_get_month_range(date, expected_start, expected_end):
         (datetime(2024, 12, 15), 9, 12),  # Сентябрь 2024 - Декабрь 2024
     ],
 )
-def test_get_three_months_back(date, expected_start_month, expected_end_month):
+def test_get_three_months_back(date: datetime, expected_start_month: int, expected_end_month: int) -> None:
     """Тест получения диапазона последних 3 месяцев с параметризацией."""
     start, end = get_three_months_back(date)
     assert start.month == expected_start_month
@@ -280,7 +285,9 @@ class TestLoadUserSettings:
 
     @patch("src.utils.os.path.exists")
     @patch("builtins.open", new_callable=mock_open, read_data='{"user_currencies": ["USD", "EUR"]}')
-    def test_load_user_settings_success(self, mock_file, mock_exists, sample_user_settings):
+    def test_load_user_settings_success(
+        self, mock_file: Any, mock_exists: Any, sample_user_settings: Dict[str, List[str]]
+    ) -> None:
         """Тест успешной загрузки настроек."""
         mock_exists.return_value = True
 
@@ -290,7 +297,7 @@ class TestLoadUserSettings:
         assert result == sample_user_settings
 
     @patch("src.utils.os.path.exists")
-    def test_load_user_settings_file_not_found(self, mock_exists):
+    def test_load_user_settings_file_not_found(self, mock_exists: Any) -> None:
         """Тест обработки отсутствия файла."""
         mock_exists.return_value = False
 
@@ -300,7 +307,7 @@ class TestLoadUserSettings:
 
     @patch("src.utils.os.path.exists")
     @patch("builtins.open", new_callable=mock_open, read_data="invalid json")
-    def test_load_user_settings_invalid_json(self, mock_file, mock_exists):
+    def test_load_user_settings_invalid_json(self, mock_file: Any, mock_exists: Any) -> None:
         """Тест обработки некорректного JSON."""
         mock_exists.return_value = True
 
@@ -311,7 +318,7 @@ class TestLoadUserSettings:
 
     @patch("src.utils.os.path.exists")
     @patch("builtins.open", side_effect=Exception("Unexpected error"))
-    def test_load_user_settings_general_exception(self, mock_file, mock_exists):
+    def test_load_user_settings_general_exception(self, mock_file: Any, mock_exists: Any) -> None:
         """Тест обработки общего исключения при загрузке настроек."""
         mock_exists.return_value = True
 
@@ -325,7 +332,7 @@ class TestSaveJson:
     """Тесты для функции save_json."""
 
     @patch("builtins.open", new_callable=mock_open)
-    def test_save_json_success(self, mock_file):
+    def test_save_json_success(self, mock_file: Any) -> None:
         """Тест успешного сохранения JSON."""
         test_data = {"key": "value", "number": 123}
         test_path = "test_output.json"
@@ -338,7 +345,7 @@ class TestSaveJson:
         assert handle.write.called
 
     @patch("builtins.open", side_effect=OSError("Permission denied"))
-    def test_save_json_permission_error(self, mock_file):
+    def test_save_json_permission_error(self, mock_file: Any) -> None:
         """Тест обработки ошибки доступа при сохранении."""
         test_data = {"key": "value"}
 
@@ -346,7 +353,7 @@ class TestSaveJson:
             save_json(test_data, "test_output.json")
 
     @patch("builtins.open", side_effect=Exception("Unexpected error"))
-    def test_save_json_general_exception(self, mock_file):
+    def test_save_json_general_exception(self, mock_file: Any) -> None:
         """Тест обработки общего исключения при сохранении."""
         test_data = {"key": "value"}
 
@@ -360,7 +367,7 @@ class TestGetCurrencyRates:
 
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_currency_rates_success(self, mock_get, mock_getenv):
+    def test_get_currency_rates_success(self, mock_get: Any, mock_getenv: Any) -> None:
         """Тест успешного получения курсов валют."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
@@ -381,7 +388,7 @@ class TestGetCurrencyRates:
         assert result[1]["rate"] == 87.08
 
     @patch("src.utils.os.getenv")
-    def test_get_currency_rates_no_api_key(self, mock_getenv):
+    def test_get_currency_rates_no_api_key(self, mock_getenv: Any) -> None:
         """Тест обработки отсутствия API ключа."""
         mock_getenv.return_value = None
 
@@ -390,7 +397,7 @@ class TestGetCurrencyRates:
         assert result == []
 
     @patch("src.utils.os.getenv")
-    def test_get_currency_rates_empty_list(self, mock_getenv):
+    def test_get_currency_rates_empty_list(self, mock_getenv: Any) -> None:
         """Тест обработки пустого списка валют."""
         mock_getenv.return_value = "test_key"
 
@@ -400,7 +407,7 @@ class TestGetCurrencyRates:
 
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_currency_rates_api_error(self, mock_get, mock_getenv):
+    def test_get_currency_rates_api_error(self, mock_get: Any, mock_getenv: Any) -> None:
         """Тест обработки ошибки API."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
@@ -415,7 +422,7 @@ class TestGetCurrencyRates:
 
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_currency_rates_missing_currency(self, mock_get, mock_getenv):
+    def test_get_currency_rates_missing_currency(self, mock_get: Any, mock_getenv: Any) -> None:
         """Тест обработки отсутствия валюты в ответе API."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
@@ -434,7 +441,7 @@ class TestGetCurrencyRates:
 
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_currency_rates_no_rates_field(self, mock_get, mock_getenv):
+    def test_get_currency_rates_no_rates_field(self, mock_get: Any, mock_getenv: Any) -> None:
         """Тест обработки отсутствия поля rates в ответе API."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
@@ -452,7 +459,7 @@ class TestGetCurrencyRates:
 
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_currency_rates_json_decode_error(self, mock_get, mock_getenv):
+    def test_get_currency_rates_json_decode_error(self, mock_get: Any, mock_getenv: Any) -> None:
         """Тест обработки ошибки парсинга JSON."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
@@ -470,7 +477,7 @@ class TestGetCurrencyRates:
 
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_currency_rates_general_exception(self, mock_get, mock_getenv):
+    def test_get_currency_rates_general_exception(self, mock_get: Any, mock_getenv: Any) -> None:
         """Тест обработки общего исключения."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
@@ -488,22 +495,87 @@ class TestGetCurrencyRates:
 class TestGetStockPrices:
     """Тесты для функции get_stock_prices."""
 
+    @patch("src.utils.time.sleep")  # Мокаем sleep, чтобы тесты выполнялись быстрее
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_stock_prices_success_list_format(self, mock_get, mock_getenv):
-        """Тест успешного получения цен акций (формат списка)."""
+    def test_get_stock_prices_success_list_format(self, mock_get: Any, mock_getenv: Any, mock_sleep: Any) -> None:
+        """Тест успешного получения цен акций (формат Alpha Vantage API)."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
             "API_URL": "https://api.test.com",
         }.get(key, default)
 
-        mock_response = MagicMock()
-        mock_response.json.return_value = [
-            {"symbol": "AAPL", "price": 150.12},
-            {"symbol": "AMZN", "price": 3173.18},
-        ]
-        mock_response.raise_for_status = MagicMock()
-        mock_get.return_value = mock_response
+        # Alpha Vantage API возвращает ответ в формате {"Global Quote": {...}}
+        # Функция делает отдельный запрос для каждой акции
+        mock_response_aapl = MagicMock()
+        mock_response_aapl.json.return_value = {
+            "Global Quote": {
+                "01. symbol": "AAPL",
+                "05. price": "150.12",
+            }
+        }
+        mock_response_aapl.raise_for_status = MagicMock()
+
+        mock_response_amzn = MagicMock()
+        mock_response_amzn.json.return_value = {
+            "Global Quote": {
+                "01. symbol": "AMZN",
+                "05. price": "3173.18",
+            }
+        }
+        mock_response_amzn.raise_for_status = MagicMock()
+
+        # Мокаем два вызова - по одному для каждой акции
+        mock_get.side_effect = [mock_response_aapl, mock_response_amzn]
+
+        result = get_stock_prices(["AAPL", "AMZN"])
+
+        assert len(result) == 2
+        assert result[0]["stock"] == "AAPL"
+        assert result[0]["price"] == 150.12
+        assert result[1]["stock"] == "AMZN"
+        assert result[1]["price"] == 3173.18
+
+    @patch("src.utils.time.sleep")  # Мокаем sleep, чтобы тесты выполнялись быстрее
+    @patch("src.utils.os.getenv")
+    @patch("src.utils.requests.get")
+    def test_get_stock_prices_success_dict_format(self, mock_get: Any, mock_getenv: Any, mock_sleep: Any) -> None:
+        """Тест успешного получения цен акций (формат Alpha Vantage API с дополнительными полями)."""
+        mock_getenv.side_effect = lambda key, default=None: {
+            "API_KEY": "test_key",
+            "API_URL": "https://api.test.com",
+        }.get(key, default)
+
+        # Alpha Vantage API возвращает ответ в формате {"Global Quote": {...}}
+        # Функция делает отдельный запрос для каждой акции
+        mock_response_aapl = MagicMock()
+        mock_response_aapl.json.return_value = {
+            "Global Quote": {
+                "01. symbol": "AAPL",
+                "02. open": "149.50",
+                "03. high": "151.00",
+                "04. low": "149.00",
+                "05. price": "150.12",
+                "06. volume": "12345678",
+            }
+        }
+        mock_response_aapl.raise_for_status = MagicMock()
+
+        mock_response_amzn = MagicMock()
+        mock_response_amzn.json.return_value = {
+            "Global Quote": {
+                "01. symbol": "AMZN",
+                "02. open": "3160.00",
+                "03. high": "3180.00",
+                "04. low": "3150.00",
+                "05. price": "3173.18",
+                "06. volume": "2345678",
+            }
+        }
+        mock_response_amzn.raise_for_status = MagicMock()
+
+        # Мокаем два вызова - по одному для каждой акции
+        mock_get.side_effect = [mock_response_aapl, mock_response_amzn]
 
         result = get_stock_prices(["AAPL", "AMZN"])
 
@@ -514,27 +586,7 @@ class TestGetStockPrices:
         assert result[1]["price"] == 3173.18
 
     @patch("src.utils.os.getenv")
-    @patch("src.utils.requests.get")
-    def test_get_stock_prices_success_dict_format(self, mock_get, mock_getenv):
-        """Тест успешного получения цен акций (формат словаря)."""
-        mock_getenv.side_effect = lambda key, default=None: {
-            "API_KEY": "test_key",
-            "API_URL": "https://api.test.com",
-        }.get(key, default)
-
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"AAPL": 150.12, "AMZN": 3173.18}
-        mock_response.raise_for_status = MagicMock()
-        mock_get.return_value = mock_response
-
-        result = get_stock_prices(["AAPL", "AMZN"])
-
-        assert len(result) == 2
-        assert result[0]["stock"] == "AAPL"
-        assert result[0]["price"] == 150.12
-
-    @patch("src.utils.os.getenv")
-    def test_get_stock_prices_no_api_key(self, mock_getenv):
+    def test_get_stock_prices_no_api_key(self, mock_getenv: Any) -> None:
         """Тест обработки отсутствия API ключа."""
         mock_getenv.return_value = None
 
@@ -543,7 +595,7 @@ class TestGetStockPrices:
         assert result == []
 
     @patch("src.utils.os.getenv")
-    def test_get_stock_prices_empty_list(self, mock_getenv):
+    def test_get_stock_prices_empty_list(self, mock_getenv: Any) -> None:
         """Тест обработки пустого списка акций."""
         mock_getenv.return_value = "test_key"
 
@@ -553,7 +605,7 @@ class TestGetStockPrices:
 
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_stock_prices_api_error(self, mock_get, mock_getenv):
+    def test_get_stock_prices_api_error(self, mock_get: Any, mock_getenv: Any) -> None:
         """Тест обработки ошибки API."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
@@ -568,7 +620,7 @@ class TestGetStockPrices:
 
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_stock_prices_unexpected_format(self, mock_get, mock_getenv):
+    def test_get_stock_prices_unexpected_format(self, mock_get: Any, mock_getenv: Any) -> None:
         """Тест обработки неожиданного формата ответа."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
@@ -586,7 +638,7 @@ class TestGetStockPrices:
 
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_stock_prices_json_decode_error(self, mock_get, mock_getenv):
+    def test_get_stock_prices_json_decode_error(self, mock_get: Any, mock_getenv: Any) -> None:
         """Тест обработки ошибки парсинга JSON."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
@@ -604,7 +656,7 @@ class TestGetStockPrices:
 
     @patch("src.utils.os.getenv")
     @patch("src.utils.requests.get")
-    def test_get_stock_prices_general_exception(self, mock_get, mock_getenv):
+    def test_get_stock_prices_general_exception(self, mock_get: Any, mock_getenv: Any) -> None:
         """Тест обработки общего исключения."""
         mock_getenv.side_effect = lambda key, default=None: {
             "API_KEY": "test_key",
