@@ -182,8 +182,10 @@ def home_page(date_time: str) -> Dict[str, Any]:
                 cashback = total_spent * CASHBACK_RATE
 
                 # Извлекаем последние 4 цифры карты
+                # Удаляем звездочки и берем последние 4 символа
                 card_str = str(card)
-                last_digits = card_str.replace("*", "") if "*" in card_str else card_str[-4:]
+                card_str_clean = card_str.replace("*", "")
+                last_digits = card_str_clean[-4:]
 
                 cards_data.append(
                     {
