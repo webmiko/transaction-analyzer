@@ -96,7 +96,7 @@ def profitable_cashback_categories(data: List[Dict[str, Any]], year: int, month:
 
     if not data:
         logger.warning("Передан пустой список транзакций")
-        return DEFAULT_RETURN_DICT
+        return {}
 
     try:
         # Фильтрация транзакций по году, месяцу и статусу
@@ -126,7 +126,7 @@ def profitable_cashback_categories(data: List[Dict[str, Any]], year: int, month:
 
         if not filtered_transactions:
             logger.info(f"Не найдено транзакций за {year}-{month:02d} со статусом {STATUS_OK}")
-            return DEFAULT_RETURN_DICT
+            return {}
 
         # Группировка по категориям и суммирование кешбэка
         categories_cashback: Dict[str, float] = {}
@@ -150,7 +150,7 @@ def profitable_cashback_categories(data: List[Dict[str, Any]], year: int, month:
 
     except Exception as e:
         logger.error(f"Ошибка при анализе категорий кешбэка: {type(e).__name__} - {e}")
-        return DEFAULT_RETURN_DICT
+        return {}
 
 
 def investment_bank(month: str, transactions: List[Dict[str, Any]], limit: int) -> float:
@@ -282,11 +282,11 @@ def simple_search(query: str, transactions: List[Dict[str, Any]]) -> Dict[str, A
 
     if not query:
         logger.warning("Передан пустой поисковый запрос")
-        return {"query": query, "transactions": DEFAULT_RETURN_VALUE}
+        return {"query": query, "transactions": []}
 
     if not transactions:
         logger.warning("Передан пустой список транзакций")
-        return {"query": query, "transactions": DEFAULT_RETURN_VALUE}
+        return {"query": query, "transactions": []}
 
     try:
         query_lower = query.lower()
@@ -305,7 +305,7 @@ def simple_search(query: str, transactions: List[Dict[str, Any]]) -> Dict[str, A
 
     except Exception as e:
         logger.error(f"Ошибка при поиске транзакций: {type(e).__name__} - {e}")
-        return {"query": query, "transactions": DEFAULT_RETURN_VALUE}
+        return {"query": query, "transactions": []}
 
 
 def search_by_phone(transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -334,7 +334,7 @@ def search_by_phone(transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     if not transactions:
         logger.warning("Передан пустой список транзакций")
-        return {"transactions": DEFAULT_RETURN_VALUE}
+        return {"transactions": []}
 
     try:
         pattern = re.compile(PHONE_PATTERN)
@@ -352,7 +352,7 @@ def search_by_phone(transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Ошибка при поиске телефонных номеров: {type(e).__name__} - {e}")
-        return {"transactions": DEFAULT_RETURN_VALUE}
+        return {"transactions": []}
 
 
 def search_person_transfers(transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -381,7 +381,7 @@ def search_person_transfers(transactions: List[Dict[str, Any]]) -> Dict[str, Any
 
     if not transactions:
         logger.warning("Передан пустой список транзакций")
-        return {"transactions": DEFAULT_RETURN_VALUE}
+        return {"transactions": []}
 
     try:
         pattern = re.compile(PERSON_NAME_PATTERN)
@@ -400,4 +400,4 @@ def search_person_transfers(transactions: List[Dict[str, Any]]) -> Dict[str, Any
 
     except Exception as e:
         logger.error(f"Ошибка при поиске переводов: {type(e).__name__} - {e}")
-        return {"transactions": DEFAULT_RETURN_VALUE}
+        return {"transactions": []}

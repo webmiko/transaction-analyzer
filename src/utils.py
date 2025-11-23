@@ -361,7 +361,7 @@ def load_user_settings() -> Dict[str, Any]:
 
     if not os.path.exists(USER_SETTINGS_FILE):
         logger.warning(f"Файл {USER_SETTINGS_FILE} не найден. Возвращаем пустой словарь.")
-        return DEFAULT_RETURN_DICT
+        return {}
 
     try:
         with open(USER_SETTINGS_FILE, FILE_READ_MODE, encoding=ENCODING) as f:
@@ -373,11 +373,11 @@ def load_user_settings() -> Dict[str, Any]:
     except json.JSONDecodeError as e:
         error_msg = f"Ошибка парсинга JSON в файле {USER_SETTINGS_FILE}"
         logger.error(f"{error_msg}: {type(e).__name__} - {e}")
-        return DEFAULT_RETURN_DICT
+        return {}
     except Exception as e:
         error_msg = f"Ошибка при загрузке настроек из {USER_SETTINGS_FILE}"
         logger.error(f"{error_msg}: {type(e).__name__} - {e}")
-        return DEFAULT_RETURN_DICT
+        return {}
 
 
 def save_json(data: Dict[str, Any], file_path: str) -> None:
@@ -438,30 +438,32 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
 
     if not currencies:
         logger.warning("Список валют пуст")
-        return DEFAULT_RETURN_VALUE
+        return []
 
     # Загрузка API ключа из переменных окружения
     api_key = os.getenv("API_KEY")
     api_url = os.getenv("API_URL", DEFAULT_API_URL)
 
+    # Используем бесплатный exchangerate-api.com по умолчанию
+    # Он не требует ключа и работает стабильно
+    use_free_api = "exchangerate-api.com" in api_url or not api_key or api_key == DEFAULT_API_KEY_PLACEHOLDER
+
     try:
         # Формирование URL для запроса
-        # Для exchangerate-api.com можно использовать без ключа (бесплатный tier)
-        if "exchangerate-api.com" in api_url:
+        if use_free_api:
             # Бесплатный API exchangerate-api.com - используем базовую валюту RUB
+            # API вернет курсы типа 1 RUB = X USD, нам нужно инвертировать для отображения
+            free_api_url = DEFAULT_API_URL
             base_currency = "RUB"
-            url = f"{api_url}/latest/{base_currency}"
+            url = f"{free_api_url}/latest/{base_currency}"
             params = {}  # Не требует ключа для базового использования
             logger.debug("Использование бесплатного API exchangerate-api.com")
         else:
             # Другие API требуют ключ
-            if not api_key or api_key == DEFAULT_API_KEY_PLACEHOLDER:
-                error_msg = "API ключ не найден или не установлен"
-                logger.error(error_msg)
-                return DEFAULT_RETURN_VALUE
             symbols = ",".join(currencies)
             url = f"{api_url}/latest"
             params = {"access_key": api_key, "symbols": symbols}
+            logger.debug(f"Использование API с ключом: {api_url}")
 
         logger.debug(f"Запрос к API: {url}")
 
@@ -480,13 +482,21 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
         if isinstance(data, dict) and "rates" in data:
             # Формат exchangerate-api.com и подобных
             rates_data = data["rates"]
+            base_currency_from_response = data.get("base", "USD")
+
             if isinstance(rates_data, dict):
                 for currency in currencies:
                     if currency in rates_data:
                         rate_value = rates_data[currency]
                         # Явная проверка типа значения курса
                         if isinstance(rate_value, (int, float)):
-                            rates.append({"currency": currency, "rate": float(rate_value)})
+                            # Если базовая валюта RUB, инвертируем курс
+                            # (API возвращает 1 RUB = X USD, нам нужно 1 USD = Y RUB)
+                            if base_currency_from_response == "RUB" and rate_value > 0:
+                                final_rate = 1.0 / float(rate_value)
+                            else:
+                                final_rate = float(rate_value)
+                            rates.append({"currency": currency, "rate": final_rate})
                         else:
                             logger.warning(f"Некорректный тип курса для валюты {currency}: {type(rate_value)}")
                     else:
@@ -505,25 +515,64 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
                             logger.warning(f"Некорректный тип курса для валюты {currency}: {type(rate_value)}")
         else:
             logger.warning(f"Неожиданный формат ответа API. Доступные ключи: {list(data.keys())}")
-            return DEFAULT_RETURN_VALUE
+            return []
 
         logger.info(f"Получено курсов валют: {len(rates)}")
         return rates
 
+    except requests.exceptions.HTTPError as e:
+        # Если ошибка 401 (Unauthorized), пробуем бесплатный API
+        if e.response is not None and e.response.status_code == 401 and not use_free_api:
+            logger.warning("Ошибка авторизации API. Пробуем бесплатный API exchangerate-api.com")
+            try:
+                # Используем бесплатный API как fallback
+                free_api_url = DEFAULT_API_URL
+                base_currency = "RUB"
+                url = f"{free_api_url}/latest/{base_currency}"
+                response = requests.get(url, timeout=REQUEST_TIMEOUT)
+                response.raise_for_status()
+                data = response.json()
+
+                # Обработка ответа бесплатного API
+                fallback_rates: List[Dict[str, Any]] = []
+                if isinstance(data, dict) and "rates" in data:
+                    rates_data = data["rates"]
+                    base_currency_from_response = data.get("base", "USD")
+                    if isinstance(rates_data, dict):
+                        for currency in currencies:
+                            if currency in rates_data:
+                                rate_value = rates_data[currency]
+                                if isinstance(rate_value, (int, float)):
+                                    if base_currency_from_response == "RUB" and rate_value > 0:
+                                        final_rate = 1.0 / float(rate_value)
+                                    else:
+                                        final_rate = float(rate_value)
+                                    fallback_rates.append({"currency": currency, "rate": final_rate})
+                logger.info(f"Получено курсов валют через бесплатный API: {len(fallback_rates)}")
+                return fallback_rates
+            except Exception as fallback_error:
+                error_msg = "Ошибка при использовании бесплатного API"
+                logger.error(f"{error_msg}: {type(fallback_error).__name__} - {fallback_error}")
+                return []
+
+        error_msg = "Ошибка при запросе к API валют"
+        safe_error = _sanitize_error_message(str(e))
+        logger.error(f"{error_msg}: {type(e).__name__} - {safe_error}")
+        return []
     except requests.exceptions.RequestException as e:
         error_msg = "Ошибка при запросе к API валют"
         # Безопасное логирование без API ключей
         safe_error = _sanitize_error_message(str(e))
         logger.error(f"{error_msg}: {type(e).__name__} - {safe_error}")
-        return DEFAULT_RETURN_VALUE
+        return []
     except json.JSONDecodeError as e:
         error_msg = "Ошибка парсинга JSON ответа от API"
         logger.error(f"{error_msg}: {type(e).__name__} - {e}")
-        return DEFAULT_RETURN_VALUE
+        return []
     except Exception as e:
         error_msg = "Неожиданная ошибка при получении курсов валют"
         logger.error(f"{error_msg}: {type(e).__name__} - {e}")
-        return DEFAULT_RETURN_VALUE
+        return []
 
 
 def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
@@ -550,7 +599,7 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
 
     if not stocks:
         logger.warning("Список акций пуст")
-        return DEFAULT_RETURN_VALUE
+        return []
 
     # Загрузка API ключа из переменных окружения
     api_key = os.getenv("API_KEY")
@@ -558,7 +607,7 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
     if not api_key or api_key == DEFAULT_API_KEY_PLACEHOLDER:
         error_msg = "API ключ не найден или не установлен"
         logger.error(error_msg)
-        return DEFAULT_RETURN_VALUE
+        return []
 
     prices: List[Dict[str, Any]] = []
 

@@ -7,7 +7,7 @@
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pandas as pd  # type: ignore[import-untyped]
 
@@ -48,6 +48,7 @@ PERIOD_WEEK = "W"
 PERIOD_MONTH = "M"
 PERIOD_YEAR = "Y"
 PERIOD_ALL = "ALL"
+PERIOD_CUSTOM = "CUSTOM"
 CATEGORY_OTHER = "Остальное"
 CATEGORY_TRANSFERS = "Переводы"
 CATEGORY_CASH = "Наличные"
@@ -159,10 +160,10 @@ def home_page(date_time: str, transactions: pd.DataFrame) -> Dict[str, Any]:
             logger.warning("Загружен пустой DataFrame")
             return {
                 "greeting": _get_greeting(current_datetime.hour),
-                "cards": DEFAULT_RETURN_VALUE,
-                "top_transactions": DEFAULT_RETURN_VALUE,
-                "currency_rates": DEFAULT_RETURN_VALUE,
-                "stock_prices": DEFAULT_RETURN_VALUE,
+                "cards": [],
+                "top_transactions": [],
+                "currency_rates": [],
+                "stock_prices": [],
             }
 
         # Фильтрация по диапазону дат и статусу
@@ -247,11 +248,11 @@ def home_page(date_time: str, transactions: pd.DataFrame) -> Dict[str, Any]:
 
         # Получение внешних данных
         settings = load_user_settings()
-        user_currencies = settings.get("user_currencies", DEFAULT_RETURN_VALUE)
-        user_stocks = settings.get("user_stocks", DEFAULT_RETURN_VALUE)
+        user_currencies = settings.get("user_currencies", [])
+        user_stocks = settings.get("user_stocks", [])
 
-        currency_rates = get_currency_rates(user_currencies) if user_currencies else DEFAULT_RETURN_VALUE
-        stock_prices = get_stock_prices(user_stocks) if user_stocks else DEFAULT_RETURN_VALUE
+        currency_rates = get_currency_rates(user_currencies) if user_currencies else []
+        stock_prices = get_stock_prices(user_stocks) if user_stocks else []
 
         # Формирование ответа
         result = {
@@ -277,14 +278,21 @@ def home_page(date_time: str, transactions: pd.DataFrame) -> Dict[str, Any]:
 
         return {
             "greeting": greeting,
-            "cards": DEFAULT_RETURN_VALUE,
-            "top_transactions": DEFAULT_RETURN_VALUE,
-            "currency_rates": DEFAULT_RETURN_VALUE,
-            "stock_prices": DEFAULT_RETURN_VALUE,
+            "cards": [],
+            "top_transactions": [],
+            "currency_rates": [],
+            "stock_prices": [],
         }
 
 
-def events_page(date: str, period: str, transactions: pd.DataFrame) -> Dict[str, Any]:
+def events_page(
+    date: str,
+    period: str,
+    transactions: pd.DataFrame,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    card_filter: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Генерирует JSON-данные для страницы событий.
 
@@ -295,53 +303,72 @@ def events_page(date: str, period: str, transactions: pd.DataFrame) -> Dict[str,
     - Курсами валют и ценами акций
 
     Args:
-        date: Дата в формате YYYY-MM-DD
-        period: Период данных (W - неделя, M - месяц, Y - год, ALL - все данные)
+        date: Дата в формате YYYY-MM-DD (используется для стандартных периодов)
+        period: Период данных (W - неделя, M - месяц, Y - год, ALL - все данные, CUSTOM - кастомный диапазон)
+        transactions: DataFrame с транзакциями
+        start_date: Начальная дата в формате YYYY-MM-DD (для периода CUSTOM)
+        end_date: Конечная дата в формате YYYY-MM-DD (для периода CUSTOM)
+        card_filter: Последние 4 цифры карты для фильтрации (например, "7197")
 
     Returns:
         Словарь с данными для страницы событий
 
     Example:
-        >>> result = events_page("2024-03-15", "M")
+        >>> result = events_page("2024-03-15", "M", df)
         >>> print(result["expenses"]["total_amount"])
         32101
     """
     logger.info(f"Генерация данных для страницы событий: date={date}, period={period}")
 
     try:
-        # Парсинг даты
-        try:
-            current_date = datetime.strptime(date, DATE_FORMAT)
-        except ValueError as e:
-            error_msg = f"Некорректный формат даты: {date}"
-            logger.error(f"{error_msg}. Ожидается формат: {DATE_FORMAT}")
-            raise ValueError(error_msg) from e
+        # Если период CUSTOM, используем переданные даты
+        if period == PERIOD_CUSTOM:
+            if not start_date or not end_date:
+                error_msg = "Для периода CUSTOM необходимо указать start_date и end_date"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
 
-        # Определение диапазона данных по периоду
-        # Устанавливаем date_range_end на конец дня (23:59:59), чтобы включить все транзакции в этот день
-        date_range_end = current_date.replace(hour=23, minute=59, second=59)
-
-        if period == PERIOD_WEEK:
-            # Неделя: последние 7 дней (включая текущий день)
-            # Вычитаем 6 дней, чтобы получить диапазон из 7 дней: [current_date-6, current_date]
-            date_range_start = current_date - timedelta(days=WEEK_DAYS - 1)
-        elif period == PERIOD_MONTH:
-            # Месяц: с начала месяца по указанную дату
-            date_range_start = get_month_start(current_date)
-        elif period == PERIOD_YEAR:
-            # Год: с начала года по указанную дату
-            date_range_start = datetime(current_date.year, 1, 1)
-        elif period == PERIOD_ALL:
-            # Все данные до указанной даты
-            date_range_start = datetime(EARLIEST_YEAR, EARLIEST_MONTH, EARLIEST_DAY)
+            try:
+                date_range_start = datetime.strptime(start_date, DATE_FORMAT)
+                date_range_end = datetime.strptime(end_date, DATE_FORMAT).replace(hour=23, minute=59, second=59)
+            except ValueError as e:
+                error_msg = f"Некорректный формат даты: {start_date} или {end_date}. Ожидается формат: {DATE_FORMAT}"
+                logger.error(error_msg)
+                raise ValueError(error_msg) from e
         else:
-            error_msg = (
-                f"Некорректный период: {period}. "
-                f"Допустимые значения: {PERIOD_WEEK}, {PERIOD_MONTH}, "
-                f"{PERIOD_YEAR}, {PERIOD_ALL}"
-            )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+            # Парсинг даты для стандартных периодов
+            try:
+                current_date = datetime.strptime(date, DATE_FORMAT)
+            except ValueError as e:
+                error_msg = f"Некорректный формат даты: {date}"
+                logger.error(f"{error_msg}. Ожидается формат: {DATE_FORMAT}")
+                raise ValueError(error_msg) from e
+
+            # Определение диапазона данных по периоду
+            # Устанавливаем date_range_end на конец дня (23:59:59), чтобы включить все транзакции в этот день
+            date_range_end = current_date.replace(hour=23, minute=59, second=59)
+
+            if period == PERIOD_WEEK:
+                # Неделя: последние 7 дней (включая текущий день)
+                # Вычитаем 6 дней, чтобы получить диапазон из 7 дней: [current_date-6, current_date]
+                date_range_start = current_date - timedelta(days=WEEK_DAYS - 1)
+            elif period == PERIOD_MONTH:
+                # Месяц: с начала месяца по указанную дату
+                date_range_start = get_month_start(current_date)
+            elif period == PERIOD_YEAR:
+                # Год: с начала года по указанную дату
+                date_range_start = datetime(current_date.year, 1, 1)
+            elif period == PERIOD_ALL:
+                # Все данные до указанной даты
+                date_range_start = datetime(EARLIEST_YEAR, EARLIEST_MONTH, EARLIEST_DAY)
+            else:
+                error_msg = (
+                    f"Некорректный период: {period}. "
+                    f"Допустимые значения: {PERIOD_WEEK}, {PERIOD_MONTH}, "
+                    f"{PERIOD_YEAR}, {PERIOD_ALL}, {PERIOD_CUSTOM}"
+                )
+                logger.error(error_msg)
+                raise ValueError(error_msg)
 
         logger.debug(f"Диапазон данных: {format_date(date_range_start)} - {format_date(date_range_end)}")
 
@@ -351,12 +378,12 @@ def events_page(date: str, period: str, transactions: pd.DataFrame) -> Dict[str,
             return {
                 "expenses": {
                     "total_amount": 0,
-                    "main": DEFAULT_RETURN_VALUE,
-                    "transfers_and_cash": DEFAULT_RETURN_VALUE,
+                    "main": [],
+                    "transfers_and_cash": [],
                 },
-                "income": {"total_amount": 0, "main": DEFAULT_RETURN_VALUE},
-                "currency_rates": DEFAULT_RETURN_VALUE,
-                "stock_prices": DEFAULT_RETURN_VALUE,
+                "income": {"total_amount": 0, "main": []},
+                "currency_rates": [],
+                "stock_prices": [],
             }
 
         # Фильтрация по диапазону дат и статусу
@@ -365,6 +392,19 @@ def events_page(date: str, period: str, transactions: pd.DataFrame) -> Dict[str,
             & (transactions["Дата операции"] <= date_range_end)
             & (transactions["Статус"] == "OK")
         ].copy()
+
+        # Фильтрация по карте, если указан фильтр
+        if card_filter:
+            # Извлекаем последние 4 цифры из номера карты и сравниваем с фильтром
+            def matches_card(card_str: str) -> bool:
+                """Проверяет, совпадают ли последние 4 цифры карты с фильтром."""
+                card_clean = str(card_str).replace("*", "")
+                last_digits = card_clean[-4:] if len(card_clean) >= 4 else card_clean
+                return last_digits == card_filter
+
+            # Применяем фильтр по карте
+            df_filtered = df_filtered[df_filtered["Номер карты"].apply(matches_card)].copy()
+            logger.info(f"Применен фильтр по карте ****{card_filter}")
 
         logger.info(f"Отфильтровано транзакций: {len(df_filtered)}")
 
@@ -431,11 +471,11 @@ def events_page(date: str, period: str, transactions: pd.DataFrame) -> Dict[str,
 
         # Получение внешних данных
         settings = load_user_settings()
-        user_currencies = settings.get("user_currencies", DEFAULT_RETURN_VALUE)
-        user_stocks = settings.get("user_stocks", DEFAULT_RETURN_VALUE)
+        user_currencies = settings.get("user_currencies", [])
+        user_stocks = settings.get("user_stocks", [])
 
-        currency_rates = get_currency_rates(user_currencies) if user_currencies else DEFAULT_RETURN_VALUE
-        stock_prices = get_stock_prices(user_stocks) if user_stocks else DEFAULT_RETURN_VALUE
+        currency_rates = get_currency_rates(user_currencies) if user_currencies else []
+        stock_prices = get_stock_prices(user_stocks) if user_stocks else []
 
         # Формирование ответа
         result = {
@@ -460,8 +500,8 @@ def events_page(date: str, period: str, transactions: pd.DataFrame) -> Dict[str,
         logger.error(f"{error_msg}: {type(e).__name__} - {e}")
         # Возвращаем базовую структуру при ошибке
         return {
-            "expenses": {"total_amount": 0, "main": DEFAULT_RETURN_VALUE, "transfers_and_cash": DEFAULT_RETURN_VALUE},
-            "income": {"total_amount": 0, "main": DEFAULT_RETURN_VALUE},
-            "currency_rates": DEFAULT_RETURN_VALUE,
-            "stock_prices": DEFAULT_RETURN_VALUE,
+            "expenses": {"total_amount": 0, "main": [], "transfers_and_cash": []},
+            "income": {"total_amount": 0, "main": []},
+            "currency_rates": [],
+            "stock_prices": [],
         }
