@@ -13,8 +13,6 @@ from typing import Any, Dict, List
 import pandas as pd  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 
-# Загрузка переменных окружения из .env файла
-load_dotenv()
 from src.utils import (
     format_date,
     get_currency_rates,
@@ -23,6 +21,9 @@ from src.utils import (
     load_transactions_from_excel,
     load_user_settings,
 )
+
+# Загрузка переменных окружения из .env файла
+load_dotenv()
 
 # Константы модуля
 ENCODING = "utf-8"
@@ -314,7 +315,11 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
             date_range_start = datetime(EARLIEST_YEAR, EARLIEST_MONTH, EARLIEST_DAY)
             date_range_end = current_date
         else:
-            error_msg = f"Некорректный период: {period}. Допустимые значения: {PERIOD_WEEK}, {PERIOD_MONTH}, {PERIOD_YEAR}, {PERIOD_ALL}"
+            error_msg = (
+                f"Некорректный период: {period}. "
+                f"Допустимые значения: {PERIOD_WEEK}, {PERIOD_MONTH}, "
+                f"{PERIOD_YEAR}, {PERIOD_ALL}"
+            )
             logger.error(error_msg)
             raise ValueError(error_msg)
 
@@ -325,7 +330,11 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
         if df.empty:
             logger.warning("Загружен пустой DataFrame")
             return {
-                "expenses": {"total_amount": 0, "main": DEFAULT_RETURN_VALUE, "transfers_and_cash": DEFAULT_RETURN_VALUE},
+                "expenses": {
+                    "total_amount": 0,
+                    "main": DEFAULT_RETURN_VALUE,
+                    "transfers_and_cash": DEFAULT_RETURN_VALUE,
+                },
                 "income": {"total_amount": 0, "main": DEFAULT_RETURN_VALUE},
                 "currency_rates": DEFAULT_RETURN_VALUE,
                 "stock_prices": DEFAULT_RETURN_VALUE,
