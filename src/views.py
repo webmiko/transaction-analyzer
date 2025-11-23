@@ -150,7 +150,8 @@ def home_page(date_time: str) -> Dict[str, Any]:
         # Определение диапазона данных (с начала месяца по указанную дату)
         month_start = get_month_start(current_datetime)
         date_range_start = month_start
-        date_range_end = current_datetime
+        # Устанавливаем date_range_end на конец дня (23:59:59), чтобы включить все транзакции в этот день
+        date_range_end = current_datetime.replace(hour=23, minute=59, second=59)
 
         logger.debug(f"Диапазон данных: {format_date(date_range_start)} - {format_date(date_range_end)}")
 
