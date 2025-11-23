@@ -83,16 +83,24 @@ def demo_views() -> None:
     logger.info("=== Демонстрация веб-страниц ===")
 
     try:
+        # Загрузка транзакций для веб-страниц
+        logger.info(f"Загрузка транзакций из {DEFAULT_EXCEL_FILE}...")
+        df = load_transactions_from_excel(DEFAULT_EXCEL_FILE)
+
+        if df.empty:
+            logger.warning("Не удалось загрузить транзакции или файл пуст")
+            return
+
         # Демонстрация главной страницы
         logger.info("Генерация данных для главной страницы...")
-        home_data = home_page(DEFAULT_DATE_TIME)
+        home_data = home_page(DEFAULT_DATE_TIME, df)
         logger.info(f"Главная страница: приветствие = {home_data.get('greeting', 'N/A')}")
         logger.info(f"Количество карт: {len(home_data.get('cards', []))}")
         logger.info(f"Топ транзакций: {len(home_data.get('top_transactions', []))}")
 
         # Демонстрация страницы событий
         logger.info("Генерация данных для страницы событий...")
-        events_data = events_page(DEFAULT_DATE, "M")
+        events_data = events_page(DEFAULT_DATE, "M", df)
         logger.info(
             f"Страница событий: общая сумма расходов = {events_data.get('expenses', {}).get('total_amount', 0)}"
         )

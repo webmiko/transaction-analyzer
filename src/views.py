@@ -5,7 +5,6 @@
 """
 
 import logging
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
@@ -24,7 +23,6 @@ from src.utils import (
     get_currency_rates,
     get_month_start,
     get_stock_prices,
-    load_transactions_from_excel,
     load_user_settings,
 )
 
@@ -37,7 +35,6 @@ FILE_WRITE_MODE = "w"
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 DATE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DATE_FORMAT = "%Y-%m-%d"
-DEFAULT_EXCEL_FILE = os.getenv("EXCEL_FILE", "data/operations.xlsx")
 CASHBACK_RATE = 0.01  # 1 рубль кешбэка на каждые 100 рублей
 TOP_TRANSACTIONS_COUNT = 5
 TOP_CATEGORIES_COUNT = 7
@@ -113,12 +110,12 @@ def _get_greeting(hour: int) -> str:
         return "Доброй ночи"
 
 
-def home_page(date_time: str) -> Dict[str, Any]:
+def home_page(date_time: str, transactions: pd.DataFrame) -> Dict[str, Any]:
     """
     Генерирует JSON-данные для главной страницы.
 
-    Функция принимает дату и время, загружает транзакции с начала месяца
-    по указанную дату, обрабатывает данные и возвращает JSON с:
+    Функция принимает дату и время, обрабатывает транзакции с начала месяца
+    по указанную дату и возвращает JSON с:
     - Приветствием по времени суток
     - Данными по картам (последние 4 цифры, сумма расходов, кешбэк)
     - Топ-5 транзакций по сумме платежа
@@ -127,12 +124,14 @@ def home_page(date_time: str) -> Dict[str, Any]:
 
     Args:
         date_time: Дата и время в формате YYYY-MM-DD HH:MM:SS
+        transactions: DataFrame с транзакциями
 
     Returns:
         Словарь с данными для главной страницы
 
     Example:
-        >>> result = home_page("2024-03-15 14:30:00")
+        >>> df = load_transactions_from_excel("data/operations.xlsx")
+        >>> result = home_page("2024-03-15 14:30:00", df)
         >>> print(result["greeting"])
         "Добрый день"
     """
@@ -155,9 +154,8 @@ def home_page(date_time: str) -> Dict[str, Any]:
 
         logger.debug(f"Диапазон данных: {format_date(date_range_start)} - {format_date(date_range_end)}")
 
-        # Загрузка транзакций
-        df = load_transactions_from_excel(DEFAULT_EXCEL_FILE)
-        if df.empty:
+        # Проверка данных
+        if transactions.empty:
             logger.warning("Загружен пустой DataFrame")
             return {
                 "greeting": _get_greeting(current_datetime.hour),
@@ -168,10 +166,10 @@ def home_page(date_time: str) -> Dict[str, Any]:
             }
 
         # Фильтрация по диапазону дат и статусу
-        df_filtered = df[
-            (df["Дата операции"] >= date_range_start)
-            & (df["Дата операции"] <= date_range_end)
-            & (df["Статус"] == "OK")
+        df_filtered = transactions[
+            (transactions["Дата операции"] >= date_range_start)
+            & (transactions["Дата операции"] <= date_range_end)
+            & (transactions["Статус"] == "OK")
         ].copy()
 
         logger.info(f"Отфильтровано транзакций: {len(df_filtered)}")
@@ -286,12 +284,12 @@ def home_page(date_time: str) -> Dict[str, Any]:
         }
 
 
-def events_page(date: str, period: str = "M") -> Dict[str, Any]:
+def events_page(date: str, period: str, transactions: pd.DataFrame) -> Dict[str, Any]:
     """
     Генерирует JSON-данные для страницы событий.
 
-    Функция принимает дату и период, загружает транзакции за указанный период,
-    обрабатывает расходы и поступления, и возвращает JSON с:
+    Функция принимает дату и период, обрабатывает транзакции за указанный период
+    и возвращает JSON с:
     - Расходами (общая сумма, основные категории, переводы и наличные)
     - Поступлениями (общая сумма, категории)
     - Курсами валют и ценами акций
@@ -347,9 +345,8 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
 
         logger.debug(f"Диапазон данных: {format_date(date_range_start)} - {format_date(date_range_end)}")
 
-        # Загрузка транзакций
-        df = load_transactions_from_excel(DEFAULT_EXCEL_FILE)
-        if df.empty:
+        # Проверка данных
+        if transactions.empty:
             logger.warning("Загружен пустой DataFrame")
             return {
                 "expenses": {
@@ -363,10 +360,10 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
             }
 
         # Фильтрация по диапазону дат и статусу
-        df_filtered = df[
-            (df["Дата операции"] >= date_range_start)
-            & (df["Дата операции"] <= date_range_end)
-            & (df["Статус"] == "OK")
+        df_filtered = transactions[
+            (transactions["Дата операции"] >= date_range_start)
+            & (transactions["Дата операции"] <= date_range_end)
+            & (transactions["Статус"] == "OK")
         ].copy()
 
         logger.info(f"Отфильтровано транзакций: {len(df_filtered)}")

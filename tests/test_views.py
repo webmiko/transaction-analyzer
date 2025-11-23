@@ -74,10 +74,8 @@ class TestHomePage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_home_page_success(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
@@ -87,12 +85,11 @@ class TestHomePage:
         sample_stock_prices: List[Dict[str, Any]],
     ) -> None:
         """Тест успешной генерации данных для главной страницы."""
-        mock_load_excel.return_value = sample_transactions_df
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = sample_currency_rates
         mock_get_stocks.return_value = sample_stock_prices
 
-        result = home_page("2024-03-20 14:30:00")
+        result = home_page("2024-03-20 14:30:00", sample_transactions_df)
 
         assert "greeting" in result
         assert "cards" in result
@@ -106,22 +103,19 @@ class TestHomePage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_home_page_empty_data(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
         sample_user_settings: Dict[str, List[str]],
     ) -> None:
         """Тест обработки пустых данных."""
-        mock_load_excel.return_value = pd.DataFrame()
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = home_page("2024-03-15 14:30:00")
+        result = home_page("2024-03-15 14:30:00", pd.DataFrame())
 
         assert result["greeting"] == "Добрый день"
         assert result["cards"] == []
@@ -142,10 +136,8 @@ class TestHomePage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_home_page_greeting(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
@@ -155,22 +147,18 @@ class TestHomePage:
         sample_user_settings: Dict[str, List[str]],
     ) -> None:
         """Тест определения приветствия по времени суток с параметризацией."""
-        mock_load_excel.return_value = sample_transactions_df
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = home_page(date_time)
+        result = home_page(date_time, sample_transactions_df)
 
         assert result["greeting"] == expected_greeting
 
-    @patch("src.views.load_transactions_from_excel")
-    def test_home_page_invalid_date_format(self, mock_load_excel: Any) -> None:
+    def test_home_page_invalid_date_format(self) -> None:
         """Тест обработки некорректного формата даты."""
-        mock_load_excel.return_value = pd.DataFrame()
-
         # Функция обрабатывает ошибку и возвращает базовую структуру
-        result = home_page("2024-03-15")  # Неправильный формат
+        result = home_page("2024-03-15", pd.DataFrame())  # Неправильный формат
 
         assert "greeting" in result
         assert result["cards"] == []
@@ -179,10 +167,8 @@ class TestHomePage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_home_page_cards_calculation(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
@@ -190,12 +176,11 @@ class TestHomePage:
         sample_user_settings: Dict[str, List[str]],
     ) -> None:
         """Тест расчета данных по картам."""
-        mock_load_excel.return_value = sample_transactions_df
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = home_page("2024-03-20 14:30:00")
+        result = home_page("2024-03-20 14:30:00", sample_transactions_df)
 
         assert len(result["cards"]) > 0
         for card in result["cards"]:
@@ -208,10 +193,8 @@ class TestHomePage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_home_page_top_transactions(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
@@ -219,12 +202,11 @@ class TestHomePage:
         sample_user_settings: Dict[str, List[str]],
     ) -> None:
         """Тест формирования топ-5 транзакций."""
-        mock_load_excel.return_value = sample_transactions_df
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = home_page("2024-03-20 14:30:00")
+        result = home_page("2024-03-20 14:30:00", sample_transactions_df)
 
         assert len(result["top_transactions"]) <= 5
         for transaction in result["top_transactions"]:
@@ -236,21 +218,20 @@ class TestHomePage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_home_page_exception_handling(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
     ) -> None:
         """Тест обработки исключений."""
-        mock_load_excel.side_effect = Exception("Unexpected error")
         mock_load_settings.return_value = {}
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = home_page("2024-03-15 14:30:00")
+        # Создаем DataFrame, который вызовет ошибку при обработке
+        problematic_df = pd.DataFrame({"invalid": [1, 2, 3]})
+        result = home_page("2024-03-15 14:30:00", problematic_df)
 
         # Должен вернуть базовую структуру
         assert "greeting" in result
@@ -265,10 +246,8 @@ class TestEventsPage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_events_page_success_month(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
@@ -278,12 +257,11 @@ class TestEventsPage:
         sample_stock_prices: List[Dict[str, Any]],
     ) -> None:
         """Тест успешной генерации данных для страницы событий (месяц)."""
-        mock_load_excel.return_value = sample_transactions_df
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = sample_currency_rates
         mock_get_stocks.return_value = sample_stock_prices
 
-        result = events_page("2024-03-20", "M")
+        result = events_page("2024-03-20", "M", sample_transactions_df)
 
         assert "expenses" in result
         assert "income" in result
@@ -307,10 +285,8 @@ class TestEventsPage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_events_page_all_periods(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
@@ -320,38 +296,31 @@ class TestEventsPage:
         sample_user_settings: Dict[str, List[str]],
     ) -> None:
         """Тест работы events_page для всех периодов с параметризацией."""
-        mock_load_excel.return_value = sample_transactions_df
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = events_page("2024-03-15", period)
+        result = events_page("2024-03-15", period, sample_transactions_df)
 
         assert "expenses" in result
         assert "income" in result
         assert isinstance(result["expenses"]["total_amount"], int)
         assert isinstance(result["income"]["total_amount"], int)
 
-    @patch("src.views.load_transactions_from_excel")
-    def test_events_page_invalid_date_format(self, mock_load_excel: Any) -> None:
+    def test_events_page_invalid_date_format(self) -> None:
         """Тест обработки некорректного формата даты."""
-        mock_load_excel.return_value = pd.DataFrame()
-
         # Функция обрабатывает ошибку и возвращает базовую структуру
-        result = events_page("2024/03/15", "M")  # Неправильный формат
+        result = events_page("2024/03/15", "M", pd.DataFrame())  # Неправильный формат
 
         assert "expenses" in result
         assert "income" in result
         assert result["expenses"]["total_amount"] == 0
         assert result["income"]["total_amount"] == 0
 
-    @patch("src.views.load_transactions_from_excel")
-    def test_events_page_invalid_period(self, mock_load_excel: Any) -> None:
+    def test_events_page_invalid_period(self) -> None:
         """Тест обработки некорректного периода."""
-        mock_load_excel.return_value = pd.DataFrame()
-
         # Функция обрабатывает ошибку и возвращает базовую структуру
-        result = events_page("2024-03-15", "INVALID")
+        result = events_page("2024-03-15", "INVALID", pd.DataFrame())
 
         assert "expenses" in result
         assert "income" in result
@@ -361,22 +330,19 @@ class TestEventsPage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_events_page_empty_data(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
         sample_user_settings: Dict[str, List[str]],
     ) -> None:
         """Тест обработки пустых данных."""
-        mock_load_excel.return_value = pd.DataFrame()
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = events_page("2024-03-15", "M")
+        result = events_page("2024-03-15", "M", pd.DataFrame())
 
         assert result["expenses"]["total_amount"] == 0
         assert result["expenses"]["main"] == []
@@ -387,10 +353,8 @@ class TestEventsPage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_events_page_expenses_categories(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
@@ -398,12 +362,11 @@ class TestEventsPage:
         sample_user_settings: Dict[str, List[str]],
     ) -> None:
         """Тест обработки категорий расходов."""
-        mock_load_excel.return_value = sample_transactions_df
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = events_page("2024-03-20", "M")
+        result = events_page("2024-03-20", "M", sample_transactions_df)
 
         assert "main" in result["expenses"]
         assert isinstance(result["expenses"]["main"], list)
@@ -415,10 +378,8 @@ class TestEventsPage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_events_page_income_categories(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
@@ -426,12 +387,11 @@ class TestEventsPage:
         sample_user_settings: Dict[str, List[str]],
     ) -> None:
         """Тест обработки категорий поступлений."""
-        mock_load_excel.return_value = sample_transactions_df
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = events_page("2024-03-20", "M")
+        result = events_page("2024-03-20", "M", sample_transactions_df)
 
         assert "main" in result["income"]
         assert isinstance(result["income"]["main"], list)
@@ -443,10 +403,8 @@ class TestEventsPage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_events_page_transfers_and_cash(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
@@ -475,12 +433,11 @@ class TestEventsPage:
         }
         df_with_transfers = pd.concat([df_with_transfers, pd.DataFrame([new_row])], ignore_index=True)
 
-        mock_load_excel.return_value = df_with_transfers
         mock_load_settings.return_value = sample_user_settings
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = events_page("2024-03-25", "M")
+        result = events_page("2024-03-25", "M", df_with_transfers)
 
         assert "transfers_and_cash" in result["expenses"]
         assert isinstance(result["expenses"]["transfers_and_cash"], list)
@@ -488,21 +445,20 @@ class TestEventsPage:
     @patch("src.views.get_stock_prices")
     @patch("src.views.get_currency_rates")
     @patch("src.views.load_user_settings")
-    @patch("src.views.load_transactions_from_excel")
     def test_events_page_exception_handling(
         self,
-        mock_load_excel: Any,
         mock_load_settings: Any,
         mock_get_currency: Any,
         mock_get_stocks: Any,
     ) -> None:
         """Тест обработки исключений."""
-        mock_load_excel.side_effect = Exception("Unexpected error")
         mock_load_settings.return_value = {}
         mock_get_currency.return_value = []
         mock_get_stocks.return_value = []
 
-        result = events_page("2024-03-15", "M")
+        # Создаем DataFrame, который вызовет ошибку при обработке
+        problematic_df = pd.DataFrame({"invalid": [1, 2, 3]})
+        result = events_page("2024-03-15", "M", problematic_df)
 
         # Должен вернуть базовую структуру
         assert "expenses" in result
