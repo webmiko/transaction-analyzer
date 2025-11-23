@@ -105,6 +105,8 @@ def save_report(filename: Optional[str] = None) -> Callable[..., Any]:
             # Определение пути к файлу
             if filename:
                 file_path = Path(filename)
+                # Создаем родительские директории, если они не существуют
+                file_path.parent.mkdir(parents=True, exist_ok=True)
             else:
                 # Генерация имени файла
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -212,7 +214,7 @@ def spending_by_category(transactions: pd.DataFrame, category: str, date: Option
         # Группировка по месяцам и суммирование
         df_filtered["месяц"] = df_filtered[DATE_OPERATION_COLUMN].dt.to_period("M")
         result_df = df_filtered.groupby("месяц")[AMOUNT_COLUMN].sum().abs().reset_index()
-        result_df.columns = ["месяц", "сумма_трат"]
+        result_df.columns = pd.Index(["месяц", "сумма_трат"], dtype=object)
         result_df["месяц"] = result_df["месяц"].astype(str)
 
         logger.info(f"Найдено трат по категории '{category}': {len(result_df)} месяцев")
@@ -293,7 +295,7 @@ def spending_by_weekday(transactions: pd.DataFrame, date: Optional[str] = None) 
 
         # Группировка по дню недели и расчет среднего
         result_df = df_filtered.groupby(WEEKDAY_COLUMN)[AMOUNT_COLUMN].mean().abs().reset_index()
-        result_df.columns = [WEEKDAY_COLUMN, AVERAGE_AMOUNT_COLUMN]
+        result_df.columns = pd.Index([WEEKDAY_COLUMN, AVERAGE_AMOUNT_COLUMN], dtype=object)
 
         logger.info(f"Рассчитаны средние траты для {len(result_df)} дней недели")
         return result_df
@@ -376,7 +378,7 @@ def spending_by_workday(transactions: pd.DataFrame, date: Optional[str] = None) 
 
         # Группировка по типу дня и расчет среднего
         result_df = df_filtered.groupby(DAY_TYPE_COLUMN)[AMOUNT_COLUMN].mean().abs().reset_index()
-        result_df.columns = [DAY_TYPE_COLUMN, AVERAGE_AMOUNT_COLUMN]
+        result_df.columns = pd.Index([DAY_TYPE_COLUMN, AVERAGE_AMOUNT_COLUMN], dtype=object)
 
         logger.info(f"Рассчитаны средние траты для {len(result_df)} типов дней")
         return result_df
