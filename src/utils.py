@@ -5,6 +5,7 @@
 """
 
 import json
+import logging
 import os
 import time
 from datetime import datetime, timedelta
@@ -15,20 +16,25 @@ import pandas as pd  # type: ignore[import-untyped]
 import requests  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 
-from src.logger_config import setup_logger
-
 # Загрузка переменных окружения из .env файла
 load_dotenv()
 
-# Настройка логгера
-logger = setup_logger(__name__)
-
-# Константы
+# Константы модуля
 ENCODING = "utf-8"
 DATE_OPERATION_FORMAT = "%d.%m.%Y %H:%M:%S"
 DATE_PAYMENT_FORMAT = "%d.%m.%Y"
 DATE_FORMAT = "%d.%m.%Y"
 DATE_FORMAT_OUTPUT = "%d.%m.%Y"
+FILE_WRITE_MODE = "w"
+FILE_READ_MODE = "r"
+TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+DEFAULT_RETURN_VALUE: List[Dict[str, Any]] = []
+DEFAULT_RETURN_DICT: Dict[str, Any] = {}
+DEFAULT_API_KEY_PLACEHOLDER = "your_api_key_here"
+DEFAULT_API_URL = "https://api.exchangerate-api.com/v4"
+ALPHA_VANTAGE_API_URL = "https://www.alphavantage.co/query"
+REQUEST_TIMEOUT = 10
+STOCK_REQUEST_DELAY = 0.2
 REQUIRED_COLUMNS = [
     "Дата операции",
     "Дата платежа",
@@ -46,6 +52,42 @@ REQUIRED_COLUMNS = [
     "Округление на инвесткопилку",
     "Сумма операции с округлением",
 ]
+USER_SETTINGS_FILE = "user_settings.json"
+
+
+def _setup_logger() -> logging.Logger:
+    """
+    Настраивает и возвращает логгер для модуля utils.
+
+    Returns:
+        Настроенный логгер для модуля utils
+    """
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+
+    if logger.handlers:
+        return logger
+
+    logs_dir = Path(__file__).parent.parent / "logs"
+    logs_dir.mkdir(exist_ok=True)
+
+    log_file = logs_dir / "utils.log"
+    file_handler = logging.FileHandler(log_file, mode=FILE_WRITE_MODE, encoding=ENCODING)
+    file_handler.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt=TIMESTAMP_FORMAT,
+    )
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+# Создаем логгер для модуля
+logger = _setup_logger()
 
 
 def load_transactions_from_excel(file_path: str) -> pd.DataFrame:
@@ -122,7 +164,7 @@ def load_transactions_from_excel(file_path: str) -> pd.DataFrame:
         raise
     except Exception as e:
         error_msg = "Ошибка при загрузке файла"
-        logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
+        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
         # Возвращаем пустой DataFrame вместо проброса исключения
         return pd.DataFrame()
 
@@ -283,28 +325,27 @@ def load_user_settings() -> Dict[str, Any]:
         >>> print(settings.get('user_currencies'))
         ['USD', 'EUR']
     """
-    settings_file = "user_settings.json"
     logger.info("Загрузка настроек пользователя")
 
-    try:
-        if not os.path.exists(settings_file):
-            logger.warning(f"Файл {settings_file} не найден. Возвращаем пустой словарь.")
-            return {}
+    if not os.path.exists(USER_SETTINGS_FILE):
+        logger.warning(f"Файл {USER_SETTINGS_FILE} не найден. Возвращаем пустой словарь.")
+        return DEFAULT_RETURN_DICT
 
-        with open(settings_file, "r", encoding=ENCODING) as f:
+    try:
+        with open(USER_SETTINGS_FILE, FILE_READ_MODE, encoding=ENCODING) as f:
             settings: Dict[str, Any] = json.load(f)
 
-        logger.info(f"Настройки успешно загружены из {settings_file}")
+        logger.info(f"Настройки успешно загружены из {USER_SETTINGS_FILE}")
         return settings
 
     except json.JSONDecodeError as e:
-        error_msg = f"Ошибка парсинга JSON в файле {settings_file}"
-        logger.error(f"{error_msg}: {e}")
-        return {}
+        error_msg = f"Ошибка парсинга JSON в файле {USER_SETTINGS_FILE}"
+        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
+        return DEFAULT_RETURN_DICT
     except Exception as e:
-        error_msg = f"Ошибка при загрузке настроек из {settings_file}"
-        logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
-        return {}
+        error_msg = f"Ошибка при загрузке настроек из {USER_SETTINGS_FILE}"
+        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
+        return DEFAULT_RETURN_DICT
 
 
 def save_json(data: Dict[str, Any], file_path: str) -> None:
@@ -325,18 +366,18 @@ def save_json(data: Dict[str, Any], file_path: str) -> None:
     logger.info(f"Сохранение данных в JSON-файл: {Path(file_path).name}")
 
     try:
-        with open(file_path, "w", encoding=ENCODING) as f:
+        with open(file_path, FILE_WRITE_MODE, encoding=ENCODING) as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
         logger.info(f"Данные успешно сохранены в {Path(file_path).name}")
 
     except OSError as e:
         error_msg = f"Ошибка при сохранении файла {Path(file_path).name}"
-        logger.error(f"{error_msg}: {e}", exc_info=True)
+        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
         raise
     except Exception as e:
         error_msg = "Неожиданная ошибка при сохранении JSON"
-        logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
+        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
         raise
 
 
@@ -363,13 +404,13 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
     """
     logger.info(f"Запрос курсов валют: {', '.join(currencies)}")
 
-    # Загрузка API ключа из переменных окружения
-    api_key = os.getenv("API_KEY")
-    api_url = os.getenv("API_URL", "https://api.exchangerate-api.com/v4")
-
     if not currencies:
         logger.warning("Список валют пуст")
-        return []
+        return DEFAULT_RETURN_VALUE
+
+    # Загрузка API ключа из переменных окружения
+    api_key = os.getenv("API_KEY")
+    api_url = os.getenv("API_URL", DEFAULT_API_URL)
 
     try:
         # Формирование URL для запроса
@@ -382,10 +423,10 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
             logger.debug("Использование бесплатного API exchangerate-api.com")
         else:
             # Другие API требуют ключ
-            if not api_key or api_key == "your_api_key_here":
+            if not api_key or api_key == DEFAULT_API_KEY_PLACEHOLDER:
                 error_msg = "API ключ не найден или не установлен"
                 logger.error(error_msg)
-                return []
+                return DEFAULT_RETURN_VALUE
             symbols = ",".join(currencies)
             url = f"{api_url}/latest"
             params = {"access_key": api_key, "symbols": symbols}
@@ -393,7 +434,7 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
         logger.debug(f"Запрос к API: {url}")
 
         # Выполнение запроса
-        response = requests.get(url, params=params, timeout=10)
+        response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
 
         # Проверка статуса ответа
         response.raise_for_status()
@@ -401,7 +442,7 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
         data = response.json()
 
         # Обработка ответа API
-        rates = []
+        rates: List[Dict[str, Any]] = []
         # Поддержка разных форматов ответа API
         if "rates" in data:
             # Формат exchangerate-api.com и подобных
@@ -417,23 +458,23 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
                     rates.append({"currency": currency, "rate": data["conversion_rates"][currency]})
         else:
             logger.warning(f"Неожиданный формат ответа API. Доступные ключи: {list(data.keys())}")
-            return []
+            return DEFAULT_RETURN_VALUE
 
         logger.info(f"Получено курсов валют: {len(rates)}")
         return rates
 
     except requests.exceptions.RequestException as e:
         error_msg = "Ошибка при запросе к API валют"
-        logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
-        return []
+        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
+        return DEFAULT_RETURN_VALUE
     except json.JSONDecodeError as e:
         error_msg = "Ошибка парсинга JSON ответа от API"
-        logger.error(f"{error_msg}: {e}")
-        return []
+        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
+        return DEFAULT_RETURN_VALUE
     except Exception as e:
         error_msg = "Неожиданная ошибка при получении курсов валют"
-        logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
-        return []
+        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
+        return DEFAULT_RETURN_VALUE
 
 
 def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
@@ -458,21 +499,19 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
     """
     logger.info(f"Запрос цен акций: {', '.join(stocks)}")
 
-    # Загрузка API ключа из переменных окружения
-    api_key = os.getenv("API_KEY")
-    # Alpha Vantage API URL
-    api_url = "https://www.alphavantage.co/query"
-
-    if not api_key or api_key == "your_api_key_here":
-        error_msg = "API ключ не найден или не установлен"
-        logger.error(error_msg)
-        return []
-
     if not stocks:
         logger.warning("Список акций пуст")
-        return []
+        return DEFAULT_RETURN_VALUE
 
-    prices = []
+    # Загрузка API ключа из переменных окружения
+    api_key = os.getenv("API_KEY")
+
+    if not api_key or api_key == DEFAULT_API_KEY_PLACEHOLDER:
+        error_msg = "API ключ не найден или не установлен"
+        logger.error(error_msg)
+        return DEFAULT_RETURN_VALUE
+
+    prices: List[Dict[str, Any]] = []
 
     # Alpha Vantage требует отдельный запрос для каждой акции
     # (или можно использовать BATCH_QUOTES, но GLOBAL_QUOTE проще)
@@ -488,7 +527,7 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
             logger.debug(f"Запрос к Alpha Vantage API для {stock}")
 
             # Выполнение запроса
-            response = requests.get(api_url, params=params, timeout=10)
+            response = requests.get(ALPHA_VANTAGE_API_URL, params=params, timeout=REQUEST_TIMEOUT)
 
             # Проверка статуса ответа
             response.raise_for_status()
@@ -522,17 +561,17 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
                 logger.warning(f"Неожиданный формат ответа API для {stock}")
 
             # Небольшая задержка между запросами (Alpha Vantage имеет лимит 5 запросов/минуту для бесплатного плана)
-            time.sleep(0.2)  # 200ms задержка между запросами
+            time.sleep(STOCK_REQUEST_DELAY)
 
         except requests.exceptions.RequestException as e:
             error_msg = f"Ошибка при запросе к API для акции {stock}"
-            logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
+            logger.error(f"{error_msg}: {type(e).__name__} - {e}")
         except json.JSONDecodeError as e:
             error_msg = f"Ошибка парсинга JSON ответа от API для {stock}"
-            logger.error(f"{error_msg}: {e}")
+            logger.error(f"{error_msg}: {type(e).__name__} - {e}")
         except Exception as e:
             error_msg = f"Неожиданная ошибка при получении цены для {stock}"
-            logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
+            logger.error(f"{error_msg}: {type(e).__name__} - {e}")
 
     logger.info(f"Получено цен акций: {len(prices)} из {len(stocks)}")
     return prices

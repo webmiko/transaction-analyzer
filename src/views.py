@@ -4,14 +4,14 @@
 для главной страницы и страницы событий.
 """
 
+import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List
 
 import pandas as pd  # type: ignore[import-untyped]
 from dotenv import load_dotenv
-
-from src.logger_config import setup_logger
 
 # Загрузка переменных окружения из .env файла
 load_dotenv()
@@ -24,14 +24,66 @@ from src.utils import (
     load_user_settings,
 )
 
-# Настройка логгера
-logger = setup_logger(__name__)
-
-# Константы
+# Константы модуля
+ENCODING = "utf-8"
+FILE_WRITE_MODE = "w"
+TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+DATE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+DATE_FORMAT = "%Y-%m-%d"
 DEFAULT_EXCEL_FILE = os.getenv("EXCEL_FILE", "data/operations.xlsx")
 CASHBACK_RATE = 0.01  # 1 рубль кешбэка на каждые 100 рублей
 TOP_TRANSACTIONS_COUNT = 5
 TOP_CATEGORIES_COUNT = 7
+DEFAULT_STATUS = "OK"
+DEFAULT_GREETING = "Добрый день"
+WEEK_DAYS = 7
+EARLIEST_YEAR = 2000
+EARLIEST_MONTH = 1
+EARLIEST_DAY = 1
+PERIOD_WEEK = "W"
+PERIOD_MONTH = "M"
+PERIOD_YEAR = "Y"
+PERIOD_ALL = "ALL"
+CATEGORY_OTHER = "Остальное"
+CATEGORY_TRANSFERS = "Переводы"
+CATEGORY_CASH = "Наличные"
+DEFAULT_RETURN_VALUE: List[Dict[str, Any]] = []
+DEFAULT_RETURN_DICT: Dict[str, Any] = {}
+
+
+def _setup_logger() -> logging.Logger:
+    """
+    Настраивает и возвращает логгер для модуля views.
+
+    Returns:
+        Настроенный логгер для модуля views
+    """
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+
+    if logger.handlers:
+        return logger
+
+    logs_dir = Path(__file__).parent.parent / "logs"
+    logs_dir.mkdir(exist_ok=True)
+
+    log_file = logs_dir / "views.log"
+    file_handler = logging.FileHandler(log_file, mode=FILE_WRITE_MODE, encoding=ENCODING)
+    file_handler.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt=TIMESTAMP_FORMAT,
+    )
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+# Создаем логгер для модуля
+logger = _setup_logger()
 
 
 def _get_greeting(hour: int) -> str:
@@ -82,10 +134,10 @@ def home_page(date_time: str) -> Dict[str, Any]:
     try:
         # Парсинг даты и времени
         try:
-            current_datetime = datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
+            current_datetime = datetime.strptime(date_time, DATE_TIME_FORMAT)
         except ValueError as e:
             error_msg = f"Некорректный формат даты: {date_time}"
-            logger.error(f"{error_msg}. Ожидается формат: YYYY-MM-DD HH:MM:SS")
+            logger.error(f"{error_msg}. Ожидается формат: {DATE_TIME_FORMAT}")
             raise ValueError(error_msg) from e
 
         # Определение диапазона данных (с начала месяца по указанную дату)
@@ -101,10 +153,10 @@ def home_page(date_time: str) -> Dict[str, Any]:
             logger.warning("Загружен пустой DataFrame")
             return {
                 "greeting": _get_greeting(current_datetime.hour),
-                "cards": [],
-                "top_transactions": [],
-                "currency_rates": [],
-                "stock_prices": [],
+                "cards": DEFAULT_RETURN_VALUE,
+                "top_transactions": DEFAULT_RETURN_VALUE,
+                "currency_rates": DEFAULT_RETURN_VALUE,
+                "stock_prices": DEFAULT_RETURN_VALUE,
             }
 
         # Фильтрация по диапазону дат и статусу
@@ -174,11 +226,11 @@ def home_page(date_time: str) -> Dict[str, Any]:
 
         # Получение внешних данных
         settings = load_user_settings()
-        user_currencies = settings.get("user_currencies", [])
-        user_stocks = settings.get("user_stocks", [])
+        user_currencies = settings.get("user_currencies", DEFAULT_RETURN_VALUE)
+        user_stocks = settings.get("user_stocks", DEFAULT_RETURN_VALUE)
 
-        currency_rates = get_currency_rates(user_currencies) if user_currencies else []
-        stock_prices = get_stock_prices(user_stocks) if user_stocks else []
+        currency_rates = get_currency_rates(user_currencies) if user_currencies else DEFAULT_RETURN_VALUE
+        stock_prices = get_stock_prices(user_stocks) if user_stocks else DEFAULT_RETURN_VALUE
 
         # Формирование ответа
         result = {
@@ -194,20 +246,20 @@ def home_page(date_time: str) -> Dict[str, Any]:
 
     except Exception as e:
         error_msg = "Ошибка при генерации данных для главной страницы"
-        logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
+        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
         # Возвращаем базовую структуру при ошибке
         try:
-            current_datetime = datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
+            current_datetime = datetime.strptime(date_time, DATE_TIME_FORMAT)
             greeting = _get_greeting(current_datetime.hour)
         except Exception:
-            greeting = "Добрый день"
+            greeting = DEFAULT_GREETING
 
         return {
             "greeting": greeting,
-            "cards": [],
-            "top_transactions": [],
-            "currency_rates": [],
-            "stock_prices": [],
+            "cards": DEFAULT_RETURN_VALUE,
+            "top_transactions": DEFAULT_RETURN_VALUE,
+            "currency_rates": DEFAULT_RETURN_VALUE,
+            "stock_prices": DEFAULT_RETURN_VALUE,
         }
 
 
@@ -238,33 +290,31 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
     try:
         # Парсинг даты
         try:
-            current_date = datetime.strptime(date, "%Y-%m-%d")
+            current_date = datetime.strptime(date, DATE_FORMAT)
         except ValueError as e:
             error_msg = f"Некорректный формат даты: {date}"
-            logger.error(f"{error_msg}. Ожидается формат: YYYY-MM-DD")
+            logger.error(f"{error_msg}. Ожидается формат: {DATE_FORMAT}")
             raise ValueError(error_msg) from e
 
         # Определение диапазона данных по периоду
-        if period == "W":
+        if period == PERIOD_WEEK:
             # Неделя: последние 7 дней
-            from datetime import timedelta
-
-            date_range_start = current_date - timedelta(days=7)
+            date_range_start = current_date - timedelta(days=WEEK_DAYS)
             date_range_end = current_date
-        elif period == "M":
+        elif period == PERIOD_MONTH:
             # Месяц: с начала месяца по указанную дату
             date_range_start = get_month_start(current_date)
             date_range_end = current_date
-        elif period == "Y":
+        elif period == PERIOD_YEAR:
             # Год: с начала года по указанную дату
             date_range_start = datetime(current_date.year, 1, 1)
             date_range_end = current_date
-        elif period == "ALL":
+        elif period == PERIOD_ALL:
             # Все данные до указанной даты
-            date_range_start = datetime(2000, 1, 1)  # Начальная дата
+            date_range_start = datetime(EARLIEST_YEAR, EARLIEST_MONTH, EARLIEST_DAY)
             date_range_end = current_date
         else:
-            error_msg = f"Некорректный период: {period}. Допустимые значения: W, M, Y, ALL"
+            error_msg = f"Некорректный период: {period}. Допустимые значения: {PERIOD_WEEK}, {PERIOD_MONTH}, {PERIOD_YEAR}, {PERIOD_ALL}"
             logger.error(error_msg)
             raise ValueError(error_msg)
 
@@ -275,10 +325,10 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
         if df.empty:
             logger.warning("Загружен пустой DataFrame")
             return {
-                "expenses": {"total_amount": 0, "main": [], "transfers_and_cash": []},
-                "income": {"total_amount": 0, "main": []},
-                "currency_rates": [],
-                "stock_prices": [],
+                "expenses": {"total_amount": 0, "main": DEFAULT_RETURN_VALUE, "transfers_and_cash": DEFAULT_RETURN_VALUE},
+                "income": {"total_amount": 0, "main": DEFAULT_RETURN_VALUE},
+                "currency_rates": DEFAULT_RETURN_VALUE,
+                "stock_prices": DEFAULT_RETURN_VALUE,
             }
 
         # Фильтрация по диапазону дат и статусу
@@ -312,11 +362,11 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
                 other_amount += amount
 
         if other_amount > 0:
-            main_categories.append({"category": "Остальное", "amount": int(other_amount)})
+            main_categories.append({"category": CATEGORY_OTHER, "amount": int(other_amount)})
 
         # Переводы и наличные отдельно
         transfers_and_cash: List[Dict[str, Any]] = []
-        for category in ["Переводы", "Наличные"]:
+        for category in [CATEGORY_TRANSFERS, CATEGORY_CASH]:
             if category in expenses_by_category.index:
                 amount = int(abs(expenses_by_category[category]))
                 transfers_and_cash.append({"category": category, "amount": amount})
@@ -332,11 +382,11 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
 
         # Получение внешних данных
         settings = load_user_settings()
-        user_currencies = settings.get("user_currencies", [])
-        user_stocks = settings.get("user_stocks", [])
+        user_currencies = settings.get("user_currencies", DEFAULT_RETURN_VALUE)
+        user_stocks = settings.get("user_stocks", DEFAULT_RETURN_VALUE)
 
-        currency_rates = get_currency_rates(user_currencies) if user_currencies else []
-        stock_prices = get_stock_prices(user_stocks) if user_stocks else []
+        currency_rates = get_currency_rates(user_currencies) if user_currencies else DEFAULT_RETURN_VALUE
+        stock_prices = get_stock_prices(user_stocks) if user_stocks else DEFAULT_RETURN_VALUE
 
         # Формирование ответа
         result = {
@@ -358,11 +408,11 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
 
     except Exception as e:
         error_msg = "Ошибка при генерации данных для страницы событий"
-        logger.error(f"{error_msg}: {type(e).__name__}", exc_info=True)
+        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
         # Возвращаем базовую структуру при ошибке
         return {
-            "expenses": {"total_amount": 0, "main": [], "transfers_and_cash": []},
-            "income": {"total_amount": 0, "main": []},
-            "currency_rates": [],
-            "stock_prices": [],
+            "expenses": {"total_amount": 0, "main": DEFAULT_RETURN_VALUE, "transfers_and_cash": DEFAULT_RETURN_VALUE},
+            "income": {"total_amount": 0, "main": DEFAULT_RETURN_VALUE},
+            "currency_rates": DEFAULT_RETURN_VALUE,
+            "stock_prices": DEFAULT_RETURN_VALUE,
         }
