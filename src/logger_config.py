@@ -10,11 +10,11 @@ from pathlib import Path
 
 # Константы модуля
 DEFAULT_LOG_LEVEL = "INFO"
-DEFAULT_LOG_FILE = "app.log"
 ENCODING = "utf-8"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 CONSOLE_LOG_LEVEL = logging.WARNING
+FILE_WRITE_MODE = "w"
 
 
 def _get_log_level(level_name: str) -> int:
@@ -41,9 +41,11 @@ def setup_logger(name: str) -> logging.Logger:
     """
     Настраивает и возвращает логгер для модуля.
 
+    Каждый модуль пишет логи в отдельный файл с именем модуля в папке logs/.
+    Например: src.utils → logs/utils.log, src.views → logs/views.log
+
     Логгер настраивается с учетом переменных окружения:
     - LOG_LEVEL: уровень логирования (по умолчанию INFO)
-    - LOG_FILE: путь к файлу логов (по умолчанию app.log)
 
     Логгер выводит сообщения в файл и в консоль.
 
@@ -58,7 +60,6 @@ def setup_logger(name: str) -> logging.Logger:
         >>> logger.info("Модуль загружен")
     """
     log_level = os.getenv("LOG_LEVEL", DEFAULT_LOG_LEVEL)
-    log_file = os.getenv("LOG_FILE", DEFAULT_LOG_FILE)
 
     logger = logging.getLogger(name)
     logger.setLevel(_get_log_level(log_level))
@@ -72,14 +73,16 @@ def setup_logger(name: str) -> logging.Logger:
 
     # Обработчик для файла
     try:
-        # Пытаемся создать файл в папке logs, если это возможно
-        log_path = Path(log_file)
-        if not log_path.is_absolute():
-            logs_dir = Path(__file__).parent.parent / "logs"
-            logs_dir.mkdir(exist_ok=True)
-            log_path = logs_dir / log_file
+        # Каждый модуль пишет логи в отдельный файл с именем модуля
+        # Извлекаем имя модуля из полного пути (например, "src.utils" -> "utils")
+        module_name = name.split(".")[-1] if "." in name else name
+        log_file = f"{module_name}.log"
 
-        file_handler = logging.FileHandler(log_path, encoding=ENCODING)
+        logs_dir = Path(__file__).parent.parent / "logs"
+        logs_dir.mkdir(exist_ok=True)
+        log_path = logs_dir / log_file
+
+        file_handler = logging.FileHandler(log_path, mode=FILE_WRITE_MODE, encoding=ENCODING)
         file_handler.setLevel(_get_log_level(log_level))
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
