@@ -8,7 +8,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 from src.reports import spending_by_category, spending_by_weekday, spending_by_workday
 from src.services import (
@@ -119,7 +119,8 @@ def demo_services() -> None:
             return
 
         # Преобразование DataFrame в список словарей для сервисов
-        transactions: List[Dict[str, Any]] = df.to_dict(orient="records")
+        # pandas возвращает dict[Hashable, Any], поэтому используем cast для типизации
+        transactions = cast(List[Dict[str, Any]], df.to_dict(orient="records"))
 
         # Демонстрация выгодных категорий кешбэка
         logger.info("Анализ выгодных категорий кешбэка...")
