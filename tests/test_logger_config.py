@@ -85,8 +85,9 @@ class TestSetupLogger:
         result = setup_logger("test_module")
 
         assert result == mock_logger
-        # Должен быть добавлен только консольный обработчик (2 раза: для ошибки и обычный)
-        assert mock_logger.addHandler.call_count == 2
+        # Должен быть добавлен только один консольный обработчик (в блоке except)
+        # Второй консольный обработчик не добавляется, так как file_handler_created = False
+        assert mock_logger.addHandler.call_count == 1
         # Проверяем, что было вызвано предупреждение
         mock_logger.warning.assert_called_once()
 
@@ -108,6 +109,7 @@ class TestSetupLogger:
         result = setup_logger("test_module")
 
         assert result == mock_logger
-        # Должен быть добавлен только консольный обработчик
-        assert mock_logger.addHandler.call_count == 2
+        # Должен быть добавлен только один консольный обработчик (в блоке except)
+        # Второй консольный обработчик не добавляется, так как file_handler_created = False
+        assert mock_logger.addHandler.call_count == 1
         mock_logger.warning.assert_called_once()

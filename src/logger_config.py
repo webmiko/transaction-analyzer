@@ -72,6 +72,7 @@ def setup_logger(name: str) -> logging.Logger:
     formatter = logging.Formatter(LOG_FORMAT, datefmt=TIMESTAMP_FORMAT)
 
     # Обработчик для файла
+    file_handler_created = False
     try:
         # Каждый модуль пишет логи в отдельный файл с именем модуля
         # Извлекаем имя модуля из полного пути (например, "src.utils" -> "utils")
@@ -86,6 +87,7 @@ def setup_logger(name: str) -> logging.Logger:
         file_handler.setLevel(_get_log_level(log_level))
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
+        file_handler_created = True
     except (OSError, PermissionError) as e:
         # Если не удалось создать файл, логируем только в консоль
         console_handler = logging.StreamHandler()
@@ -95,9 +97,12 @@ def setup_logger(name: str) -> logging.Logger:
         logger.warning(f"Не удалось создать файл логов: {type(e).__name__} - {e}. Логирование только в консоль.")
 
     # Обработчик для консоли (только WARNING и выше)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(CONSOLE_LOG_LEVEL)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+    # Добавляем только если файловый обработчик был успешно создан
+    # Если файловый обработчик не создан, консольный уже добавлен выше
+    if file_handler_created:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(CONSOLE_LOG_LEVEL)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
     return logger
