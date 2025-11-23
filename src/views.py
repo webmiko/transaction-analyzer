@@ -213,7 +213,7 @@ def home_page(date_time: str) -> Dict[str, Any]:
             df_sorted = df_sorted.sort_values("abs_amount", ascending=False)
 
             for _, row in df_sorted.head(TOP_TRANSACTIONS_COUNT).iterrows():
-                # Извлекаем значения из Series
+                # Получаем дату операции из строки DataFrame
                 operation_date_value: Any = row["Дата операции"]
                 # Преобразуем в datetime, если это не datetime
                 if isinstance(operation_date_value, datetime):
@@ -229,9 +229,9 @@ def home_page(date_time: str) -> Dict[str, Any]:
                     else:
                         operation_date = datetime.now()
 
-                # Извлекаем значения из Series, используя правильные методы pandas
+                # Получаем сумму платежа из строки DataFrame
                 amount_value: Any = row["Сумма платежа"]
-                # Для pandas Series используем .iloc[0] или прямое преобразование
+                # Если это массив (Series), берем первое значение, иначе используем как есть
                 if isinstance(amount_value, pd.Series):
                     amount = float(amount_value.iloc[0])
                 else:
@@ -323,8 +323,9 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
         date_range_end = current_date.replace(hour=23, minute=59, second=59)
 
         if period == PERIOD_WEEK:
-            # Неделя: последние 7 дней
-            date_range_start = current_date - timedelta(days=WEEK_DAYS)
+            # Неделя: последние 7 дней (включая текущий день)
+            # Вычитаем 6 дней, чтобы получить диапазон из 7 дней: [current_date-6, current_date]
+            date_range_start = current_date - timedelta(days=WEEK_DAYS - 1)
         elif period == PERIOD_MONTH:
             # Месяц: с начала месяца по указанную дату
             date_range_start = get_month_start(current_date)
@@ -406,9 +407,9 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
         transfers_and_cash: List[Dict[str, Any]] = []
         for category in [CATEGORY_TRANSFERS, CATEGORY_CASH]:
             if category in expenses_by_category.index:
-                # Извлекаем значение из Series, используя правильные методы pandas
+                # Получаем сумму для категории
                 amount_value: Any = expenses_by_category[category]
-                # Для pandas Series используем прямое преобразование или .iloc[0]
+                # Если это массив (Series), берем первое значение, иначе используем как есть
                 if isinstance(amount_value, pd.Series):
                     amount_scalar = float(amount_value.iloc[0])
                 else:
@@ -423,7 +424,7 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
 
         income_main: List[Dict[str, Any]] = []
         for category, amount in income_by_category.items():
-            # Извлекаем скалярное значение из Series, если это Series
+            # Если amount - это Series (массив), берем первое значение, иначе используем как есть
             if isinstance(amount, pd.Series):
                 amount_value = float(amount.iloc[0])
             else:
