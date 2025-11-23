@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import pandas as pd  # type: ignore[import-untyped]
+
+# Типы для pandas
+try:
+    from pandas import Timestamp  # type: ignore[import-untyped]
+except ImportError:
+    Timestamp = Any  # type: ignore[misc,assignment]
 from dotenv import load_dotenv
 
 from src.utils import (
@@ -208,20 +214,33 @@ def home_page(date_time: str) -> Dict[str, Any]:
 
             for _, row in df_sorted.head(TOP_TRANSACTIONS_COUNT).iterrows():
                 # Извлекаем значения из Series
-                operation_date_value = row["Дата операции"]
+                operation_date_value: Any = row["Дата операции"]
                 # Преобразуем в datetime, если это не datetime
                 if isinstance(operation_date_value, datetime):
                     operation_date = operation_date_value
-                elif hasattr(operation_date_value, "to_pydatetime"):
+                elif isinstance(operation_date_value, pd.Timestamp):
+                    # Для pandas Timestamp используем to_pydatetime()
                     operation_date = operation_date_value.to_pydatetime()
                 else:
                     # Пытаемся преобразовать строку или другой формат
-                    operation_date = pd.to_datetime(operation_date_value).to_pydatetime()
+                    operation_date_dt = pd.to_datetime(operation_date_value)
+                    if isinstance(operation_date_dt, pd.Timestamp):
+                        operation_date = operation_date_dt.to_pydatetime()
+                    else:
+                        operation_date = datetime.now()
+
+                # Извлекаем значения из Series, используя правильные методы pandas
+                amount_value: Any = row["Сумма платежа"]
+                # Для pandas Series используем .iloc[0] или прямое преобразование
+                if isinstance(amount_value, pd.Series):
+                    amount = float(amount_value.iloc[0])
+                else:
+                    amount = float(amount_value)
 
                 top_transactions.append(
                     {
                         "date": format_date(operation_date),
-                        "amount": round(float(row["Сумма платежа"]), 2),
+                        "amount": round(amount, 2),
                         "category": str(row["Категория"]),
                         "description": str(row["Описание"]),
                     }
@@ -387,7 +406,14 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
         transfers_and_cash: List[Dict[str, Any]] = []
         for category in [CATEGORY_TRANSFERS, CATEGORY_CASH]:
             if category in expenses_by_category.index:
-                amount = int(abs(expenses_by_category[category]))
+                # Извлекаем значение из Series, используя правильные методы pandas
+                amount_value: Any = expenses_by_category[category]
+                # Для pandas Series используем прямое преобразование или .iloc[0]
+                if isinstance(amount_value, pd.Series):
+                    amount_scalar = float(amount_value.iloc[0])
+                else:
+                    amount_scalar = float(amount_value)
+                amount = int(abs(amount_scalar))
                 transfers_and_cash.append({"category": category, "amount": amount})
 
         # Обработка поступлений
@@ -397,7 +423,12 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
 
         income_main: List[Dict[str, Any]] = []
         for category, amount in income_by_category.items():
-            income_main.append({"category": category, "amount": int(amount)})
+            # Извлекаем скалярное значение из Series, если это Series
+            if isinstance(amount, pd.Series):
+                amount_value = float(amount.iloc[0])
+            else:
+                amount_value = float(amount)
+            income_main.append({"category": category, "amount": int(amount_value)})
 
         # Получение внешних данных
         settings = load_user_settings()

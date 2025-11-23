@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
+import pandas as pd  # type: ignore[import-untyped]
+
 # Константы модуля
 ENCODING = "utf-8"
 FILE_WRITE_MODE = "w"
@@ -105,9 +107,11 @@ def profitable_cashback_categories(data: List[Dict[str, Any]], year: int, month:
                 if not operation_date:
                     continue
 
-                # Преобразование даты, если это строка
+                # Преобразование даты, если это строка или pandas Timestamp
                 if isinstance(operation_date, str):
                     operation_date = datetime.strptime(operation_date, "%d.%m.%Y %H:%M:%S")
+                elif isinstance(operation_date, pd.Timestamp):
+                    operation_date = operation_date.to_pydatetime()
                 elif not isinstance(operation_date, datetime):
                     continue
 
@@ -202,9 +206,11 @@ def investment_bank(month: str, transactions: List[Dict[str, Any]], limit: int) 
                 if not operation_date:
                     continue
 
-                # Преобразование даты
+                # Преобразование даты, если это строка или pandas Timestamp
                 if isinstance(operation_date, str):
                     operation_date = datetime.strptime(operation_date, "%d.%m.%Y %H:%M:%S")
+                elif isinstance(operation_date, pd.Timestamp):
+                    operation_date = operation_date.to_pydatetime()
                 elif not isinstance(operation_date, datetime):
                     continue
 

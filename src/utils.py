@@ -444,18 +444,33 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
         # Обработка ответа API
         rates: List[Dict[str, Any]] = []
         # Поддержка разных форматов ответа API
-        if "rates" in data:
+        # Явная проверка типов для безопасности
+        if isinstance(data, dict) and "rates" in data:
             # Формат exchangerate-api.com и подобных
-            for currency in currencies:
-                if currency in data["rates"]:
-                    rates.append({"currency": currency, "rate": data["rates"][currency]})
-                else:
-                    logger.warning(f"Курс для валюты {currency} не найден в ответе API")
-        elif "conversion_rates" in data:
+            rates_data = data["rates"]
+            if isinstance(rates_data, dict):
+                for currency in currencies:
+                    if currency in rates_data:
+                        rate_value = rates_data[currency]
+                        # Явная проверка типа значения курса
+                        if isinstance(rate_value, (int, float)):
+                            rates.append({"currency": currency, "rate": float(rate_value)})
+                        else:
+                            logger.warning(f"Некорректный тип курса для валюты {currency}: {type(rate_value)}")
+                    else:
+                        logger.warning(f"Курс для валюты {currency} не найден в ответе API")
+        elif isinstance(data, dict) and "conversion_rates" in data:
             # Альтернативный формат
-            for currency in currencies:
-                if currency in data["conversion_rates"]:
-                    rates.append({"currency": currency, "rate": data["conversion_rates"][currency]})
+            conversion_rates = data["conversion_rates"]
+            if isinstance(conversion_rates, dict):
+                for currency in currencies:
+                    if currency in conversion_rates:
+                        rate_value = conversion_rates[currency]
+                        # Явная проверка типа значения курса
+                        if isinstance(rate_value, (int, float)):
+                            rates.append({"currency": currency, "rate": float(rate_value)})
+                        else:
+                            logger.warning(f"Некорректный тип курса для валюты {currency}: {type(rate_value)}")
         else:
             logger.warning(f"Неожиданный формат ответа API. Доступные ключи: {list(data.keys())}")
             return DEFAULT_RETURN_VALUE
@@ -536,21 +551,32 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
 
             # Обработка ответа Alpha Vantage
             # Формат: {"Global Quote": {"01. symbol": "AAPL", "05. price": "150.12", ...}}
-            if "Global Quote" in data and data["Global Quote"]:
+            # Явная проверка типов для безопасности
+            if isinstance(data, dict) and "Global Quote" in data:
                 quote = data["Global Quote"]
-                # Alpha Vantage возвращает цену в поле "05. price"
-                price_str = quote.get("05. price", "")
-                if price_str:
-                    try:
-                        price = float(price_str)
+                if isinstance(quote, dict) and quote:
+                    # Alpha Vantage возвращает цену в поле "05. price"
+                    price_value = quote.get("05. price", "")
+                    if price_value:
+                        # Явная проверка типа: может быть строка или число
+                        if isinstance(price_value, (int, float)):
+                            price = float(price_value)
+                        elif isinstance(price_value, str):
+                            try:
+                                price = float(price_value)
+                            except ValueError:
+                                logger.warning(f"Некорректный формат цены для {stock}: {price_value}")
+                                continue
+                        else:
+                            logger.warning(f"Некорректный тип цены для {stock}: {type(price_value)}")
+                            continue
                         prices.append({"stock": stock, "price": price})
                         logger.debug(f"Получена цена для {stock}: {price}")
-                    except ValueError:
-                        logger.warning(f"Некорректный формат цены для {stock}: {price_str}")
-                else:
-                    logger.warning(f"Цена не найдена в ответе API для {stock}")
-            elif "Error Message" in data:
-                error_msg = data.get("Error Message", "Неизвестная ошибка API")
+                    else:
+                        logger.warning(f"Цена не найдена в ответе API для {stock}")
+            elif isinstance(data, dict) and "Error Message" in data:
+                error_msg_value = data.get("Error Message")
+                error_msg = str(error_msg_value) if error_msg_value else "Неизвестная ошибка API"
                 logger.warning(f"Ошибка API для {stock}: {error_msg}")
             elif "Note" in data:
                 # Alpha Vantage может вернуть сообщение о лимите запросов
