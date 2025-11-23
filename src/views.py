@@ -300,22 +300,21 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
             raise ValueError(error_msg) from e
 
         # Определение диапазона данных по периоду
+        # Устанавливаем date_range_end на конец дня (23:59:59), чтобы включить все транзакции в этот день
+        date_range_end = current_date.replace(hour=23, minute=59, second=59)
+
         if period == PERIOD_WEEK:
             # Неделя: последние 7 дней
             date_range_start = current_date - timedelta(days=WEEK_DAYS)
-            date_range_end = current_date
         elif period == PERIOD_MONTH:
             # Месяц: с начала месяца по указанную дату
             date_range_start = get_month_start(current_date)
-            date_range_end = current_date
         elif period == PERIOD_YEAR:
             # Год: с начала года по указанную дату
             date_range_start = datetime(current_date.year, 1, 1)
-            date_range_end = current_date
         elif period == PERIOD_ALL:
             # Все данные до указанной даты
             date_range_start = datetime(EARLIEST_YEAR, EARLIEST_MONTH, EARLIEST_DAY)
-            date_range_end = current_date
         else:
             error_msg = (
                 f"Некорректный период: {period}. "

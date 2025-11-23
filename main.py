@@ -48,7 +48,7 @@ def _setup_logger() -> logging.Logger:
     if logger.handlers:
         return logger
 
-    logs_dir = Path(__file__).parent.parent / "logs"
+    logs_dir = Path(__file__).parent / "logs"
     logs_dir.mkdir(exist_ok=True)
 
     log_file = logs_dir / "main.log"
