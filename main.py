@@ -48,7 +48,10 @@ def _setup_logger() -> logging.Logger:
     if logger.handlers:
         return logger
 
-    logs_dir = Path(__file__).parent / "logs"
+    # Определяем корень проекта (main.py находится в корне)
+    # Для единообразия с другими модулями используем parent, так как main.py в корне
+    project_root = Path(__file__).parent
+    logs_dir = project_root / "logs"
     logs_dir.mkdir(exist_ok=True)
 
     log_file = logs_dir / "main.log"
