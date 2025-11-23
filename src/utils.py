@@ -7,6 +7,7 @@
 import json
 import logging
 import os
+import re
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -53,6 +54,37 @@ REQUIRED_COLUMNS = [
     "Сумма операции с округлением",
 ]
 USER_SETTINGS_FILE = "user_settings.json"
+
+
+def _sanitize_error_message(error_msg: str) -> str:
+    """
+    Удаляет чувствительные данные (API ключи) из сообщения об ошибке.
+
+    Args:
+        error_msg: Исходное сообщение об ошибке
+
+    Returns:
+        Сообщение об ошибке без чувствительных данных
+
+    Example:
+        >>> msg = "Error: https://api.example.com?key=secret123"
+        >>> _sanitize_error_message(msg)
+        'Error: https://api.example.com?key=***'
+    """
+    # Маскируем API ключи в URL параметрах
+    # Паттерны для различных форматов API ключей
+    patterns = [
+        (r"(access_key=)([^&\s]+)", r"\1***"),
+        (r"(apikey=)([^&\s]+)", r"\1***"),
+        (r"(api_key=)([^&\s]+)", r"\1***"),
+        (r"(key=)([^&\s]+)", r"\1***"),
+    ]
+
+    sanitized = error_msg
+    for pattern, replacement in patterns:
+        sanitized = re.sub(pattern, replacement, sanitized, flags=re.IGNORECASE)
+
+    return sanitized
 
 
 def _setup_logger() -> logging.Logger:
@@ -480,7 +512,9 @@ def get_currency_rates(currencies: List[str]) -> List[Dict[str, Any]]:
 
     except requests.exceptions.RequestException as e:
         error_msg = "Ошибка при запросе к API валют"
-        logger.error(f"{error_msg}: {type(e).__name__} - {e}")
+        # Безопасное логирование без API ключей
+        safe_error = _sanitize_error_message(str(e))
+        logger.error(f"{error_msg}: {type(e).__name__} - {safe_error}")
         return DEFAULT_RETURN_VALUE
     except json.JSONDecodeError as e:
         error_msg = "Ошибка парсинга JSON ответа от API"
@@ -591,7 +625,9 @@ def get_stock_prices(stocks: List[str]) -> List[Dict[str, Any]]:
 
         except requests.exceptions.RequestException as e:
             error_msg = f"Ошибка при запросе к API для акции {stock}"
-            logger.error(f"{error_msg}: {type(e).__name__} - {e}")
+            # Безопасное логирование без API ключей
+            safe_error = _sanitize_error_message(str(e))
+            logger.error(f"{error_msg}: {type(e).__name__} - {safe_error}")
         except json.JSONDecodeError as e:
             error_msg = f"Ошибка парсинга JSON ответа от API для {stock}"
             logger.error(f"{error_msg}: {type(e).__name__} - {e}")
