@@ -5,6 +5,7 @@
 """
 
 import logging
+import math
 import re
 from datetime import datetime
 from pathlib import Path
@@ -231,8 +232,9 @@ def investment_bank(month: str, transactions: List[Dict[str, Any]], limit: int) 
             amount = transaction.get(AMOUNT_COLUMN, 0.0)
             try:
                 amount_value = abs(float(amount)) if amount else 0.0
-                # Округление до предела
-                rounded = ((int(amount_value) + limit - 1) // limit) * limit
+                # Округление до предела (округление вверх до ближайшего кратного limit)
+                # Используем math.ceil для правильного округления дробных сумм
+                rounded = math.ceil(amount_value / limit) * limit
                 rounding_diff = rounded - amount_value
                 total_rounding += rounding_diff
             except (ValueError, TypeError) as e:

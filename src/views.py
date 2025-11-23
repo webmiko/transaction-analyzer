@@ -364,9 +364,18 @@ def events_page(date: str, period: str = "M") -> Dict[str, Any]:
         main_categories: List[Dict[str, Any]] = []
         other_amount = 0.0
 
-        for idx, (category, amount) in enumerate(expenses_by_category.items()):
-            if idx < TOP_CATEGORIES_COUNT:
+        # Исключаем "Переводы" и "Наличные" из основных категорий
+        # так как они обрабатываются отдельно
+        excluded_categories = {CATEGORY_TRANSFERS, CATEGORY_CASH}
+        main_category_count = 0
+
+        for category, amount in expenses_by_category.items():
+            if category in excluded_categories:
+                # Пропускаем "Переводы" и "Наличные" - они будут в transfers_and_cash
+                continue
+            if main_category_count < TOP_CATEGORIES_COUNT:
                 main_categories.append({"category": category, "amount": int(amount)})
+                main_category_count += 1
             else:
                 other_amount += amount
 
