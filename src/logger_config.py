@@ -13,7 +13,7 @@ DEFAULT_LOG_LEVEL = "INFO"
 ENCODING = "utf-8"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
-CONSOLE_LOG_LEVEL = logging.WARNING
+CONSOLE_LOG_LEVEL: int = logging.WARNING
 FILE_WRITE_MODE = "w"
 
 
