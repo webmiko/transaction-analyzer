@@ -277,3 +277,4 @@ GET /api/events?period=M&card=7197
 
 **Следующий шаг:** [API Reference](API-Reference)
 
+

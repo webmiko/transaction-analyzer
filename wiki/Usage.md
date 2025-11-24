@@ -356,3 +356,4 @@ events_data = events_page(
 
 **Следующий шаг:** [Веб-интерфейс](Web-Interface)
 
+
