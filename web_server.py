@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from flask import Flask, jsonify, render_template, request  # type: ignore[import-untyped]
+from flask import Flask, jsonify, render_template, request
 
 from src.utils import load_transactions_from_excel
 from src.views import _get_greeting, events_page, home_page

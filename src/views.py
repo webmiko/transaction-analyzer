@@ -9,13 +9,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import pandas as pd  # type: ignore[import-untyped]
-
-# Типы для pandas
-try:
-    from pandas import Timestamp  # type: ignore[import-untyped]
-except ImportError:
-    Timestamp = Any  # type: ignore[misc,assignment]
+import pandas as pd
 from dotenv import load_dotenv
 
 from src.utils import (

@@ -11,7 +11,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 
 from src.utils import get_three_months_back
 

@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 
 # Константы модуля
 ENCODING = "utf-8"

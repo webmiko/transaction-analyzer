@@ -85,7 +85,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 # Сторонние библиотеки
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 
 # Локальные импорты
 from src.utils import some_function
