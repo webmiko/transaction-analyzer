@@ -391,3 +391,4 @@ poetry run python -c "from src.utils import load_transactions_from_excel; df = l
 **Следующий шаг:** [Contributing](Contributing) - Как внести вклад в проект
 
 
+

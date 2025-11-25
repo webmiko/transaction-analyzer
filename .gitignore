@@ -173,6 +173,9 @@ git/
 git/scm*/
 git/scm0/
 
+# Git hooks (локальные, не коммитим)
+.git/hooks/
+
 # Демонстрационные и временные файлы
 demo.py
 IDE_SETUP.md
