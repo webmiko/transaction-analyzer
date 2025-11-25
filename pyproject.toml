@@ -9,6 +9,9 @@ package-mode = false
 python = "^3.9"
 requests = "^2.31.0"
 pandas = "^2.0.0"
+openpyxl = "^3.1.5"
+python-dotenv = "^1.2.1"
+flask = "^3.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"
@@ -16,6 +19,10 @@ black = "^23.0.0"
 flake8 = "^6.0.0"
 isort = "^5.12.0"
 mypy = "^1.0.0"
+pytest-cov = "^7.0.0"
+pandas-stubs = ">=2.2.0,<2.3.0"
+types-requests = "^2.32.4.20250913"
+types-flask = "^1.1.9"
 
 [build-system]
 requires = ["poetry-core"]
@@ -47,7 +54,24 @@ disallow_untyped_defs = true
 no_implicit_optional = true
 exclude = '''
 ^venv/
+^bank-code/
 '''
+# Настройки для pandas, requests и flask stubs
+[[tool.mypy.overrides]]
+module = [
+    "pandas.*",
+    "requests.*",
+    "flask.*",
+]
+ignore_missing_imports = false
+
+# Настройки для pytest (библиотека тестирования не требует типов)
+[[tool.mypy.overrides]]
+module = [
+    "pytest",
+    "pytest.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

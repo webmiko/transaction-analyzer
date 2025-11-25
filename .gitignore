@@ -146,7 +146,6 @@ cython_debug/
 *.log
 *.txt
 !README.txt
-data/
 *.csv
 *.json
 !**/tests/**/*.json
@@ -158,4 +157,27 @@ data/
 инструкция_разработки.md
 Правила-разработки.md
 План-разработки.md
+bank-code/
 
+# Отчеты и временные файлы
+ОТЧЕТ-ТЕСТИРОВАНИЯ.md
+ПРОВЕРКА-ПРОЕКТА.md
+ПРОВЕРКА-ЭТАП-7.md
+ПРОВЕРКА-ЧЕКЛИСТА.md
+СТРУКТУРА-КОММИТОВ.md
+reports/
+reports_and_checks/
+
+# Временные файлы Git
+git/
+git/scm*/
+git/scm0/
+
+# Git hooks (локальные, не коммитим)
+.git/hooks/
+
+# Демонстрационные и временные файлы
+demo.py
+IDE_SETUP.md
+
+logs/
